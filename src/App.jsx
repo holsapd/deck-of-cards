@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import CardFlip from "./components/CardFlip";
 
 // Deck of Cards Workout - React PWA + animated card flips
 
@@ -8,12 +8,15 @@ const RANKS = [
   "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K",
 ];
 
-function makeDeck() {
+function makeDeck(numJokers = 1) {
   const deck = [];
   for (const s of SUITS) {
     for (const r of RANKS) {
       deck.push({ suit: s, rank: r, id: `${r}${s}` });
     }
+  }
+  for (let i = 0; i < numJokers; i++) {
+    deck.push({ suit: "🃏", rank: "Joker", id: `Joker${i}` });
   }
   return deck;
 }
@@ -193,29 +196,18 @@ export default function DeckOfCardsWorkout() {
               </button>
             </div>
 
-            <div className="mt-6 bg-slate-50 p-4 rounded-lg h-48 flex items-center justify-center">
-              <AnimatePresence mode="wait">
-                {current ? (
-                  <motion.div
-                    key={current.id}
-                    initial={{ rotateY: 180, opacity: 0 }}
-                    animate={{ rotateY: 0, opacity: 1 }}
-                    exit={{ rotateY: -180, opacity: 0 }}
-                    transition={{ duration: 0.6 }}
-                    className="flex items-center justify-center bg-white border rounded-lg shadow-lg p-6 text-center"
-                    style={{ transformStyle: "preserve-3d" }}
-                  >
-                    <div className="text-6xl">{current.suit}</div>
-                    <div className="ml-4">
-                      <div className="text-xl font-semibold">{current.rank} of {current.suit}</div>
-                      <div className="text-lg text-slate-600">{exMap[current.suit]} — {repsFor(current)} reps</div>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <div className="text-slate-600">No card drawn yet — press Draw Card.</div>
-                )}
-              </AnimatePresence>
-            </div>
+            <div className="mt-6 flex flex-col items-center justify-center bg-slate-50 p-4 rounded-lg">
+  {current ? (
+    <>
+      <CardFlip card={current} />
+      <div className="mt-4 text-lg font-medium">
+        {exMap[current.suit]} — {repsFor(current)} reps
+      </div>
+    </>
+  ) : (
+    <div className="text-slate-600">No card drawn yet — press Draw Card.</div>
+  )}
+</div>
 
             <div className="mt-4">
               <h3 className="font-semibold">Session history</h3>
