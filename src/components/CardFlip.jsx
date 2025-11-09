@@ -1,69 +1,81 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 
 export default function CardFlip({ card, reps, exercise, patrioticJoker }) {
-  const [flipped, setFlipped] = useState(true); // Show face initially (already flipped)
-
   if (!card) return null;
 
   const isJoker = card.rank === "Joker";
 
-  const front = (
-    <div className="relative w-48 h-64 bg-white rounded-xl border border-slate-300 shadow-xl flex flex-col items-center justify-center">
+  return (
+    <motion.div
+      key={card.id}
+      initial={{ rotateY: 180, opacity: 0 }}
+      animate={{ rotateY: 0, opacity: 1 }}
+      exit={{ rotateY: -180, opacity: 0 }}
+      transition={{ duration: 0.5, ease: "easeInOut" }}
+      className="relative flex items-center justify-center"
+      style={{
+        perspective: 1000,
+        transformStyle: "preserve-3d",
+      }}
+    >
+      {/* Joker Card */}
       {isJoker ? (
         <img
           src={patrioticJoker}
-          alt="Joker"
-          className="absolute inset-0 w-full h-full object-cover rounded-xl"
+          alt="Joker Card"
+          className="max-h-[70vh] max-w-[88vw] w-auto h-auto object-contain rounded-2xl shadow-xl select-none"
         />
       ) : (
-        <>
-          <div className="absolute top-2 left-2 text-2xl">{card.suit}</div>
-          <div className="text-6xl font-bold">{card.rank}</div>
-          <div className="absolute bottom-2 right-2 text-2xl rotate-180">
-            {card.suit}
+        // Standard Card Face
+        <div className="relative bg-white rounded-2xl border border-slate-400 shadow-2xl aspect-[2/3] w-[min(80vw,350px)] h-auto flex flex-col justify-between p-4 text-slate-900">
+          {/* Top corner */}
+          <div className="absolute top-2 left-3 text-left leading-tight">
+            <div
+              className={`text-2xl font-bold ${
+                card.suit === "♥" || card.suit === "♦"
+                  ? "text-red-600"
+                  : "text-black"
+              }`}
+            >
+              {card.rank}
+            </div>
+            <div className="text-xl">{card.suit}</div>
           </div>
-          <div className="absolute bottom-4 text-center w-full text-slate-700 text-sm">
-            {exercise} • {reps} reps
+
+          {/* Center suit */}
+          <div className="flex-1 flex items-center justify-center text-[6rem] select-none">
+            <span
+              className={`${
+                card.suit === "♥" || card.suit === "♦"
+                  ? "text-red-500"
+                  : "text-black"
+              }`}
+            >
+              {card.suit}
+            </span>
           </div>
-        </>
+
+          {/* Bottom corner */}
+          <div className="absolute bottom-2 right-3 text-right leading-tight rotate-180">
+            <div
+              className={`text-2xl font-bold ${
+                card.suit === "♥" || card.suit === "♦"
+                  ? "text-red-600"
+                  : "text-black"
+              }`}
+            >
+              {card.rank}
+            </div>
+            <div className="text-xl">{card.suit}</div>
+          </div>
+
+          {/* Exercise text */}
+          <div className="absolute bottom-4 left-0 w-full text-center text-base font-medium text-slate-700">
+            {exercise} — {reps} reps
+          </div>
+        </div>
       )}
-    </div>
-  );
-
-  const back = (
-    <div className="w-48 h-64 rounded-xl shadow-xl border border-slate-300 bg-gradient-to-br from-blue-600 to-red-500 flex items-center justify-center text-white text-lg">
-      Deck of Cards
-    </div>
-  );
-
-  return (
-    <motion.div
-      className="relative cursor-pointer"
-      onClick={() => setFlipped(!flipped)}
-      initial={false}
-      animate={{ rotateY: flipped ? 180 : 0 }}
-      transition={{ duration: 0.6 }}
-      style={{
-        transformStyle: "preserve-3d",
-        perspective: 1000,
-      }}
-    >
-      {/* Back */}
-      <motion.div
-        className="absolute w-full h-full backface-hidden"
-        style={{ backfaceVisibility: "hidden" }}
-      >
-        {back}
-      </motion.div>
-
-      {/* Front */}
-      <motion.div
-        className="absolute w-full h-full backface-hidden"
-        style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden" }}
-      >
-        {front}
-      </motion.div>
     </motion.div>
   );
 }
