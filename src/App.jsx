@@ -122,13 +122,19 @@ export default function App() {
           {/* Start screen and End screen use the patriotic back image */}
           {(phase === "start" || phase === "end") && (
             <div className="flex flex-col items-center">
-              <img
-                src={patrioticBack}
-                alt="Card back"
-                // Fit nicely on any screen: width up to ~88vw, height up to ~80vh, keep aspect
-                className="max-h-[80vh] max-w-[88vw] w-auto h-auto rounded-2xl shadow-xl cursor-pointer select-none"
-                onClick={phase === "start" ? startWorkout : restartWorkout}
-              />
+<img
+  src={patrioticBack}
+  alt="Card back"
+  className="rounded-2xl shadow-xl cursor-pointer select-none"
+  style={{
+    maxWidth: "88vw",
+    maxHeight: "80vh",
+    width: "auto",
+    height: "auto",
+    objectFit: "contain",
+  }}
+  onClick={phase === "start" ? startWorkout : restartWorkout}
+/>
               <div className="mt-4 text-slate-700 font-medium text-center">
                 {phase === "start"
                   ? "Flip the card to commence the suffering"
