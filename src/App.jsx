@@ -91,7 +91,7 @@ export default function DeckOfCardsWorkout() {
         {showBack ? (
           <div className="flex flex-col items-center">
             <img
-              src="/src/assets/patriotic-playing-card.png"
+              src="/patriotic-playing-card.png"
               alt="Card Back"
               className="max-h-[80vh] w-auto object-contain rounded-lg shadow-xl"
             />
