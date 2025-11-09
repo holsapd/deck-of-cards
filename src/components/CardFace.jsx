@@ -13,10 +13,10 @@ export default function CardFace({ card, exercise, reps }) {
         <img
           src={`${import.meta.env.BASE_URL}patriotic-joker.png`}
           alt="Joker"
-          className="max-h-[75vh] w-auto object-contain rounded-xl shadow-2xl"
+          className="max-h-[80vh] w-auto object-contain rounded-xl shadow-2xl"
         />
         {exercise && (
-          <p className="mt-4 text-lg font-medium text-gray-900 text-center">
+          <p className="mt-4 text-lg font-semibold text-gray-900 text-center">
             {exercise}
           </p>
         )}
@@ -26,22 +26,26 @@ export default function CardFace({ card, exercise, reps }) {
 
   // Standard card face
   return (
-    <div className="bg-white rounded-2xl border-4 border-gray-300 shadow-2xl w-[250px] h-[360px] flex flex-col justify-between p-4 relative">
-      <div className={`text-2xl font-bold ${textColor}`}>
+    <div className="relative bg-white rounded-2xl border-[3px] border-gray-400 shadow-2xl w-[280px] h-[400px] flex flex-col justify-between p-3 overflow-hidden">
+      {/* Top left corner */}
+      <div className={`absolute top-3 left-3 text-2xl font-bold ${textColor}`}>
         {card.rank}
         <div>{card.suit}</div>
       </div>
 
-      <div className={`text-7xl ${textColor} text-center`}>
+      {/* Center suit */}
+      <div className={`flex items-center justify-center text-8xl ${textColor}`}>
         {card.suit}
       </div>
 
-      <div className={`text-2xl font-bold self-end rotate-180 ${textColor}`}>
+      {/* Bottom right corner (mirrored) */}
+      <div className={`absolute bottom-3 right-3 text-2xl font-bold rotate-180 ${textColor}`}>
         {card.rank}
         <div>{card.suit}</div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-3 text-center text-sm text-gray-700">
+      {/* Exercise & reps */}
+      <div className="absolute bottom-2 inset-x-0 text-center text-sm text-gray-700 font-medium">
         {exercise} — {reps} reps
       </div>
     </div>
