@@ -11,7 +11,7 @@ export default function CardFace({ card, exercise, reps }) {
     return (
       <div className="flex flex-col items-center">
         <img
-          src="/patriotic-joker.png"
+          src={`${import.meta.env.BASE_URL}patriotic-joker.png`}
           alt="Joker"
           className="max-h-[75vh] w-auto object-contain rounded-xl shadow-2xl"
         />
