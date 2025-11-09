@@ -6,17 +6,19 @@ export default function CardFace({ card, exercise, reps }) {
   const isRed = card.suit === "♦" || card.suit === "♥";
   const textColor = isRed ? "text-red-600" : "text-black";
 
-  // Joker card uses image
+  // Joker card
   if (card.rank === "Joker") {
     return (
       <div className="flex flex-col items-center">
         <img
-          src="/src/assets/patriotic-joker.png"
+          src="/patriotic-joker.png"
           alt="Joker"
-          className="max-h-[80vh] w-auto object-contain rounded-lg shadow-lg"
+          className="max-h-[75vh] w-auto object-contain rounded-xl shadow-2xl"
         />
         {exercise && (
-          <p className="mt-4 text-lg font-medium text-gray-900">{exercise}</p>
+          <p className="mt-4 text-lg font-medium text-gray-900 text-center">
+            {exercise}
+          </p>
         )}
       </div>
     );
@@ -24,7 +26,7 @@ export default function CardFace({ card, exercise, reps }) {
 
   // Standard card face
   return (
-    <div className="relative bg-white rounded-xl border-2 border-gray-300 shadow-xl w-64 h-96 flex flex-col justify-between p-4 transition-transform duration-300 ease-in-out">
+    <div className="bg-white rounded-2xl border-4 border-gray-300 shadow-2xl w-[250px] h-[360px] flex flex-col justify-between p-4 relative">
       <div className={`text-2xl font-bold ${textColor}`}>
         {card.rank}
         <div>{card.suit}</div>
@@ -39,7 +41,7 @@ export default function CardFace({ card, exercise, reps }) {
         <div>{card.suit}</div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-4 text-center text-lg font-medium text-gray-900">
+      <div className="absolute inset-x-0 bottom-3 text-center text-sm text-gray-700">
         {exercise} — {reps} reps
       </div>
     </div>
