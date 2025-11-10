@@ -1,16 +1,36 @@
-# React + Vite
+# Deck of Cards Workout — Dev Notes
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This app is a Vite + React project. Below are quick references for assets and common tweaks you might want during development.
 
-Currently, two official plugins are available:
+Public assets (place in public/ with these exact names):
+- patriotic-playing-card.png – standard card back
+- patriotic-joker.png – Joker artwork (full-card background)
+- patriotic-jack.png, patriotic-queen.png, busch-king.png – face card backgrounds
+- patriotic-queen-example.png – fallback face background if a rank image is missing
+- hell-yeah-brother.png – end-of-deck celebration image
+- hell-yeah-brother.m4a – optional celebration sound (played on end-of-deck)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Tweaking face/joker overlays
+- File: src/components/CardFace.jsx
+- Face-card overlay vertical position: look for transform: translateY(50px) in the J/Q/K overlay container and change the 50 value.
+- Joker overlay vertical position: look for transform: translateY(50px) in the Joker overlay box and change the 50 value.
 
-## React Compiler
+Corner sizes and colors
+- File: src/components/CardFace.jsx
+- Corner rank/suit sizes: adjust the fontSize values (e.g., 37 and 45) in the corner blocks.
+- Red/black suits: logic uses card.isRed/Unicode suits, with a safe fallback.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Settings and persistence
+- Files: src/App.jsx and src/components/Settings.jsx
+- Settings persist via localStorage key: docw_settings
+- Configurable: exercises by suit, difficulty multiplier, number of Jokers (0–10), Ace value (1 or 14), and a list of Joker workouts (unlimited; a random non-empty one is chosen when drawing a Joker).
 
-## Expanding the ESLint configuration
+Progress counter
+- File: src/App.jsx
+- Drawn count is computed as: totalCards - deck.length (first drawn card shows 1)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Deploy
+- Netlify auto-builds on GitHub push.
+- Build command: npm run build
+- Publish directory: dist
+- Local test: npm run build && npm run preview
