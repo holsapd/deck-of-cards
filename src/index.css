@@ -1,3 +1,14 @@
+/* ✅ Import a classic serif that resembles playing-card typography, then the display font */
+@import url("https://fonts.googleapis.com/css2?family=Old+Standard+TT:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&display=swap");
+
+/* Tailwind base styles */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ✅ Add this to apply the new font site-wide */
+body {
+  font-family: "Playfair Display", Georgia, serif;
+  background-color: #111827; /* keeps your dark background consistent */
+}

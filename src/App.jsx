@@ -1,8 +1,22 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import CardFace from "./components/CardFace";
 
 const SUITS = ["♣", "♦", "♥", "♠"];
-const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const RANKS = [
+  "A",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "J",
+  "Q",
+  "K",
+];
 
 function makeDeck(numJokers = 1) {
   const deck = [];
@@ -35,7 +49,8 @@ export default function DeckOfCardsWorkout() {
   const [deck, setDeck] = useState(() => shuffle(makeDeck(1)));
   const [current, setCurrent] = useState(null);
   const [flipped, setFlipped] = useState(false);
-  const [exMap, setExMap] = useState(DEFAULT_EXERCISES);
+  const [exMap] = useState(DEFAULT_EXERCISES);
+  const [jokerWorkout] = useState("Wildcard (Joker Workout)");
 
   function drawCard() {
     if (deck.length === 0) {
@@ -48,17 +63,18 @@ export default function DeckOfCardsWorkout() {
   }
 
   function handleCardClick() {
-    // Flip animation
     setFlipped(true);
     setTimeout(() => {
       setFlipped(false);
       drawCard();
-    }, 200); // short flip duration
+    }, 200);
   }
 
   const repsFor = (card) => {
     if (!card || card.rank === "Joker" || card.rank === "BACK") return 0;
-    const base = isNaN(card.rank) ? { A: 1, J: 11, Q: 12, K: 13 }[card.rank] : Number(card.rank);
+    const base = isNaN(card.rank)
+      ? { A: 1, J: 11, Q: 12, K: 13 }[card.rank]
+      : Number(card.rank);
     return base;
   };
 
@@ -67,9 +83,8 @@ export default function DeckOfCardsWorkout() {
     return exMap[card.suit] || (card.rank === "Joker" ? exMap["🃏"] : "");
   };
 
-  // Initial card back
   const showBack = !current || current.rank === "BACK";
-  const showJoker = current?.rank === "Joker";
+  const isEndOfDeck = current?.id === "end";
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4">
@@ -88,35 +103,17 @@ export default function DeckOfCardsWorkout() {
           flipped ? "scale-90 opacity-0" : "scale-100 opacity-100"
         }`}
       >
-        {showBack ? (
-          <div className="flex flex-col items-center">
-            <img
-              src={`${import.meta.env.BASE_URL}patriotic-playing-card.png`}
-              alt="Card Back"
-              className="max-h-[80vh] w-auto object-contain rounded-lg shadow-xl"
-            />
-            {current?.id === "end" ? (
-              <p className="mt-4 text-lg font-semibold text-white">
-                Congrats, you crushed the workout!
-              </p>
-            ) : (
-              <p className="mt-4 text-sm text-gray-300">
-                Flip the card to commence the suffering
-              </p>
-            )}
-          </div>
-        ) : showJoker ? (
-          <CardFace
-            card={current}
-            exercise={exerciseFor(current)}
-            reps={0}
-          />
-        ) : (
-          <CardFace
-            card={current}
-            exercise={exerciseFor(current)}
-            reps={repsFor(current)}
-          />
+        <CardFace
+          card={current}
+          reps={repsFor(current)}
+          workout={current?.suit === "🃏" ? jokerWorkout : exerciseFor(current)}
+          showBack={showBack}
+          isFlipped={!!current}
+        />
+        {isEndOfDeck && (
+          <p className="mt-4 text-lg font-semibold text-white">
+            Congrats, you crushed the workout!
+          </p>
         )}
       </div>
 
