@@ -66,10 +66,10 @@ export default function Settings({
         value={difficulty}
         onChange={(e) => setDifficulty(Number(e.target.value))}
       >
-        <option value={0.5}>0.5x</option>
-        <option value={1}>1x (Normal)</option>
-        <option value={1.5}>1.5x</option>
-        <option value={2}>2x</option>
+        <option value={0.5}>0.5x (Easier)</option>
+        <option value={1}>1x (Standard)</option>
+        <option value={1.5}>1.5x (Hard)</option>
+        <option value={2}>2x (Insane)</option>
       </select>
 
       {/* Space then Ace value and Number of Jokers */}
