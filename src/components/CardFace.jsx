@@ -24,7 +24,13 @@ const cardFrameStyle = {
   zIndex: 10,
 };
 
-export default function CardFace({ card, reps, workout, showBack }) {
+export default function CardFace({
+  card,
+  reps,
+  workout,
+  showBack,
+  preWorkoutOverlay,
+}) {
   // Track face-art source and allow fallback to queen example
   const [faceSrc, setFaceSrc] = React.useState(null);
   React.useEffect(() => {
@@ -46,6 +52,9 @@ export default function CardFace({ card, reps, workout, showBack }) {
       } catch {}
     }
   }, [showBack, isEndCard]);
+  const showPreWorkoutOverlay =
+    showBack && !!preWorkoutOverlay && !isEndCard && !card;
+
   if (showBack) {
     return (
       <motion.div
@@ -77,6 +86,43 @@ export default function CardFace({ card, reps, workout, showBack }) {
             className="absolute inset-0 w-full h-full object-cover select-none"
             style={{ pointerEvents: "none" }}
           />
+          {showPreWorkoutOverlay && (
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ pointerEvents: "none", padding: 24 }}
+            >
+              <div
+                className="select-none"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  transform: "translateY(10px)",
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "rgba(245,245,244,0.85)",
+                    color: "#111827",
+                    padding: "12px 16px",
+                    borderRadius: 14,
+                    minWidth: "65%",
+                    fontSize: 24,
+                    fontWeight: 700,
+                    boxShadow: "0 8px 24px rgba(15,23,42,0.15)",
+                    textAlign: "center",
+                  }}
+                >
+                  {preWorkoutOverlay.exercises.map((name, idx) => (
+                    <div key={`${name}-${idx}`}>{name}</div>
+                  ))}
+                  {preWorkoutOverlay.jokerLabel && (
+                    <div>{preWorkoutOverlay.jokerLabel}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
     );

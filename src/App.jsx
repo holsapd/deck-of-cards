@@ -460,6 +460,22 @@ export default function DeckOfCardsWorkout() {
     return exMap[card.suit] || "";
   };
   const showBack = !current || current.rank === "BACK";
+  const preWorkoutOverlay = React.useMemo(() => {
+    if (current) return null;
+    const exercises = SUIT_KEYS.map((key, idx) => {
+      const name = (exMap[key] || "").trim();
+      if (name) return name;
+      return BASIC_FALLBACK_WORKOUTS[idx] || BASIC_FALLBACK_WORKOUTS[0];
+    }).filter(Boolean);
+    const jokerCountLabel = `${numJokers || 0} ${
+      numJokers === 1 ? "Joker" : "Jokers"
+    }`;
+    if (!exercises.length && !numJokers) return null;
+    return {
+      exercises,
+      jokerLabel: jokerCountLabel,
+    };
+  }, [current, exMap, numJokers]);
   const isEndOfDeck = current?.id === "end";
   const progressIndex = Math.min(
     totalCards,
@@ -636,7 +652,6 @@ export default function DeckOfCardsWorkout() {
       numJokers: randomSettings.numJokers,
       deckSize: randomSettings.deckSize,
     });
-    setHasStarted(true);
     setActiveTab("workout");
   };
 
@@ -847,8 +862,8 @@ export default function DeckOfCardsWorkout() {
                   className="mb-4 text-center text-sm"
                   style={{ color: "#ffffff" }}
                 >
-                  Tap the card to start your selected deck or start a Random
-                  Workout below.
+                  Tap the card to start your selected deck or randomize a
+                  workout below.
                 </p>
               )}
 
@@ -885,6 +900,7 @@ export default function DeckOfCardsWorkout() {
                   reps={repsFor(current)}
                   workout={exerciseFor(current)}
                   showBack={showBack}
+                  preWorkoutOverlay={preWorkoutOverlay}
                   isFlipped={!!current}
                 />
                 {isEndOfDeck && (
@@ -1068,7 +1084,7 @@ export default function DeckOfCardsWorkout() {
                     onClick={startRandomWorkout}
                     className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-500"
                   >
-                    Start Random Workout
+                    Randomize Workout
                   </button>
                 </div>
               )}
