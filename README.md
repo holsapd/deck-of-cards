@@ -34,3 +34,9 @@ Deploy
 - Build command: npm run build
 - Publish directory: dist
 - Local test: npm run build && npm run preview
+
+Google Play (Trusted Web Activity) checklist
+- Web installability: manifest (`public/manifest.json`) now defines name/description/icons/scope/start_url and must stay in sync with the PWA you deploy (Netlify URL).
+- Digital Asset Links: update `public/.well-known/assetlinks.json` with your actual Play package name and the SHA-256 fingerprint from the keystore you use to sign the Android APK (Bubblewrap can print this).
+- Packaging: install the free Bubblewrap CLI (`npm install -g @bubblewrap/cli`), run `bubblewrap init --manifest https://<your-domain>/manifest.json`, then `bubblewrap build`. This generates an Android project plus a signed release bundle/APK.
+- Verification flow: after building, upload the `.aab` to the Google Play Console, then publish. Keep the same keystore for every update so the fingerprint in `assetlinks.json` stays valid.
