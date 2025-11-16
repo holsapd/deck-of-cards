@@ -1,15 +1,27 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const patrioticBack = `${import.meta.env.BASE_URL}patriotic-playing-card.png`;
-const jokerImg = `${import.meta.env.BASE_URL}patriotic-joker.png`;
-const hellYeahImg = `${import.meta.env.BASE_URL}hell-yeah-brother.png`;
+const standardBack = `${
+  import.meta.env.BASE_URL
+}theme-standard-playing-card.png`;
+const jokerImg = `${import.meta.env.BASE_URL}theme-standard-joker.png`;
+const celebrationImg = `${
+  import.meta.env.BASE_URL
+}theme-standard-celebration.png`;
 const hellYeahAudio = `${import.meta.env.BASE_URL}hell-yeah-brother.m4a`;
-const queenExample = `${import.meta.env.BASE_URL}patriotic-queen-example.png`;
+const queenExample = `${import.meta.env.BASE_URL}theme-standard-queen.png`;
 const faceArt = {
-  J: `${import.meta.env.BASE_URL}patriotic-jack.png`,
-  Q: `${import.meta.env.BASE_URL}patriotic-queen.png`,
-  K: `${import.meta.env.BASE_URL}busch-king.png`,
+  J: `${import.meta.env.BASE_URL}theme-standard-jack.png`,
+  Q: `${import.meta.env.BASE_URL}theme-standard-queen.png`,
+  K: `${import.meta.env.BASE_URL}theme-standard-king.png`,
+};
+// Shared sizing keeps front/back cards consistent regardless of asset proportions
+const cardFrameStyle = {
+  width: "min(88vw, 320px)",
+  aspectRatio: "2.5 / 3.5",
+  fontFamily: "'Old Standard TT', 'Playfair Display', Georgia, serif",
+  backgroundColor: "#ffffff",
+  zIndex: 10,
 };
 
 export default function CardFace({ card, reps, workout, showBack }) {
@@ -39,32 +51,42 @@ export default function CardFace({ card, reps, workout, showBack }) {
       <motion.div
         className="flex flex-col items-center"
         initial={
-          isEndCard ? { opacity: 0, rotate: 0 } : { opacity: 0, rotateY: -90 }
+          isEndCard
+            ? { opacity: 0, y: -120, rotate: 0, scale: 0.9 }
+            : { opacity: 0, rotateY: -90 }
         }
         animate={
           isEndCard
-            ? { opacity: 1, rotate: 360 * 5 }
+            ? { opacity: 1, y: 0, rotate: 360, scale: 1 }
             : { opacity: 1, rotateY: 0 }
         }
         exit={isEndCard ? { opacity: 0 } : { opacity: 0, rotateY: 90 }}
         transition={
-          isEndCard ? { duration: 1.6, ease: "linear" } : { duration: 0.3 }
+          isEndCard
+            ? { type: "spring", stiffness: 60, damping: 16 }
+            : { duration: 0.3 }
         }
       >
-        <img
-          src={isEndCard ? hellYeahImg : patrioticBack}
-          alt={isEndCard ? "Workout Complete" : "Card Back"}
-          className="max-h-[75vh] w-auto object-contain rounded-[24px] shadow-2xl"
-        />
+        <div
+          className="relative bg-white rounded-[24px] border-[3px] border-gray-300 shadow-2xl overflow-hidden"
+          style={cardFrameStyle}
+        >
+          <img
+            src={isEndCard ? celebrationImg : standardBack}
+            alt={isEndCard ? "Workout Complete" : "Card Back"}
+            className="absolute inset-0 w-full h-full object-cover select-none"
+            style={{ pointerEvents: "none" }}
+          />
+        </div>
       </motion.div>
     );
   }
 
-  const isJoker = card.suit === "🃏";
-  const isRed = card.suit === "♦" || card.suit === "♥";
+  const isJoker = card?.rank === "Joker";
+  const isRed = card?.suit === "♥" || card?.suit === "♦";
   const pipColor = isRed ? "text-red-600" : "text-black";
   // Fallback-safe suit/color logic (avoids encoding issues)
-  const isJokerFixed = card?.rank === "Joker";
+  const isJokerFixed = isJoker;
   const isRedFixed = card?.suit === "♥" || card?.suit === "♦";
   const isRedFinal = card?.isRed ?? isRedFixed;
   const pipColorFixed = isRedFinal ? "text-red-600" : "text-black";
@@ -83,14 +105,7 @@ export default function CardFace({ card, reps, workout, showBack }) {
         {isJokerFixed ? (
           <div
             className="relative bg-white rounded-[24px] border-[3px] border-gray-300 shadow-2xl overflow-hidden"
-            style={{
-              width: "min(88vw, 320px)",
-              aspectRatio: "2.5 / 3.5",
-              fontFamily:
-                "'Old Standard TT', 'Playfair Display', Georgia, serif",
-              backgroundColor: "#ffffff",
-              zIndex: 10,
-            }}
+            style={cardFrameStyle}
           >
             <img
               src={jokerImg}
@@ -121,7 +136,7 @@ export default function CardFace({ card, reps, workout, showBack }) {
                   minWidth: "65%",
                   fontSize: 24,
                   fontWeight: 700,
-                  transform: "translateY(50px)",
+                  transform: "translateY(10px)",
                 }}
               >
                 {workout}
@@ -131,14 +146,7 @@ export default function CardFace({ card, reps, workout, showBack }) {
         ) : (
           <div
             className="relative bg-white rounded-[24px] border-[3px] border-gray-300 shadow-2xl overflow-hidden"
-            style={{
-              width: "min(88vw, 320px)",
-              aspectRatio: "2.5 / 3.5",
-              fontFamily:
-                "'Old Standard TT', 'Playfair Display', Georgia, serif",
-              backgroundColor: "#ffffff", // force white when utilities aren't applied
-              zIndex: 10,
-            }}
+            style={cardFrameStyle}
           >
             {/[JQK]/.test(card.rank) && faceSrc && (
               <img
@@ -202,7 +210,7 @@ export default function CardFace({ card, reps, workout, showBack }) {
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    transform: "translateY(50px)",
+                    transform: "translateY(10px)",
                   }}
                 >
                   <div
@@ -262,4 +270,3 @@ export default function CardFace({ card, reps, workout, showBack }) {
     </AnimatePresence>
   );
 }
-

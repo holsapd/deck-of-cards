@@ -3,11 +3,11 @@
 This app is a Vite + React project. Below are quick references for assets and common tweaks you might want during development.
 
 Public assets (place in public/ with these exact names):
-- patriotic-playing-card.png – standard card back
-- patriotic-joker.png – Joker artwork (full-card background)
-- patriotic-jack.png, patriotic-queen.png, busch-king.png – face card backgrounds
-- patriotic-queen-example.png – fallback face background if a rank image is missing
-- hell-yeah-brother.png – end-of-deck celebration image
+- theme-standard-playing-card.png – standard card back
+- theme-standard-joker.png – Joker artwork (full-card background)
+- theme-standard-jack.png, theme-standard-queen.png, theme-standard-king.png – face card backgrounds
+- theme-standard-queen.png – fallback face background if a rank image is missing
+- theme-standard-celebration.png – end-of-deck celebration image
 - hell-yeah-brother.m4a – optional celebration sound (played on end-of-deck)
 
 Tweaking face/joker overlays

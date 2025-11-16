@@ -8,29 +8,223 @@ const SUITS = [
   { key: "\u2663", label: "Clubs" },
 ];
 
+const JOKER_SLOT_OPTIONS = [
+  { value: "random", label: 'Random Draw from "Jokers" List' },
+  { value: "none", label: "None" },
+];
+
 export default function Settings({
-  numJokers,
-  setNumJokers,
-  exMap,
-  setExMap,
-  jokerWorkouts,
-  setJokerWorkouts,
-  difficulty,
-  setDifficulty,
+  deckSize,
+  setDeckSize,
   aceHigh,
   setAceHigh,
+  faceCardMode,
+  setFaceCardMode,
+  resetDeck,
+  deckPresets,
+  workoutOptions,
+  onDeckSuitChange,
+  onDeckJokerChange,
+  onDeleteDeck,
+  onStartAddCustomDeck,
+  customDeckDraft,
+  onCustomDeckFieldChange,
+  onCustomDeckSuitChange,
+  onCustomDeckJokerChange,
+  onSaveCustomDeck,
+  onCancelCustomDeck,
 }) {
-  const updateExercise = (suit, value) => {
-    setExMap((prev) => ({ ...prev, [suit]: value }));
-  };
-  const addJokerExercise = () => {
-    setJokerWorkouts((prev) => [...prev, ""]);
-  };
-  const updateJokerExercise = (idx, value) => {
-    setJokerWorkouts((prev) => prev.map((v, i) => (i === idx ? value : v)));
-  };
-  const removeJokerExercise = (idx) => {
-    setJokerWorkouts((prev) => prev.filter((_, i) => i !== idx));
+  const suitOptions =
+    Array.isArray(workoutOptions) && workoutOptions.length
+      ? workoutOptions
+      : ["Lunges", "Squats", "Push-ups", "Sit-ups"];
+
+  const renderDeckSection = (deck) => (
+    <div
+      key={deck.id}
+      className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3"
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold" style={{ color: "#ffffff" }}>
+          {deck.name}
+        </h3>
+        {deck.id !== "standard" && (
+          <button
+            type="button"
+            onClick={() => onDeleteDeck?.(deck.id)}
+            className="px-3 py-1 text-xs font-semibold border border-white/30 rounded-lg text-white hover:bg-white/10"
+          >
+            Delete
+          </button>
+        )}
+      </div>
+      {SUITS.map((suit) => {
+        const currentValue = deck.suits?.[suit.key] || "";
+        const optionsForSuit =
+          currentValue && !suitOptions.includes(currentValue)
+            ? [currentValue, ...suitOptions]
+            : suitOptions;
+        return (
+          <div
+            key={`${deck.id}-${suit.key}`}
+            className="flex items-center gap-2"
+          >
+            <span className="w-24 text-right text-white/80">{suit.label}</span>
+            <select
+              className="flex-1 border p-2 rounded bg-white text-black"
+              value={currentValue}
+              onChange={(e) =>
+                onDeckSuitChange(deck.id, suit.key, e.target.value)
+              }
+            >
+              {optionsForSuit.map((opt) => (
+                <option key={`${deck.id}-${suit.key}-${opt}`} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      })}
+      <div className="flex flex-col gap-3 mt-2">
+        {[1, 2].map((slot) => {
+          const slotValue =
+            deck.jokerSlots &&
+            (deck.jokerSlots[slot] || deck.jokerSlots[String(slot)])
+              ? deck.jokerSlots[slot] || deck.jokerSlots[String(slot)]
+              : "none";
+          return (
+            <React.Fragment key={`${deck.id}-joker-${slot}`}>
+              <div className="flex items-center gap-3">
+                <span className="w-32 text-right text-white font-semibold">
+                  {`Joker #${slot}`}
+                </span>
+                <select
+                  className="flex-1 border p-2 rounded bg-white text-black"
+                  value={slotValue}
+                  onChange={(e) =>
+                    onDeckJokerChange(deck.id, slot, e.target.value)
+                  }
+                >
+                  {JOKER_SLOT_OPTIONS.map((opt) => (
+                    <option
+                      key={`${deck.id}-joker-${slot}-${opt.value}`}
+                      value={opt.value}
+                    >
+                      {opt.label}
+                    </option>
+                ))}
+              </select>
+            </div>
+              {slot === 2 && <div style={{ height: 24 }} />}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderCustomDeckForm = () => {
+    if (!customDeckDraft) return null;
+    return (
+      <div className="rounded-2xl border border-white/20 bg-white/10 p-4 space-y-3 mt-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold" style={{ color: "#ffffff" }}>
+            New Custom Workout
+          </h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="w-24 text-right text-white/80">Name</span>
+          <input
+            className="flex-1 border p-2 rounded bg-white text-black"
+            value={customDeckDraft.name}
+            onChange={(e) => onCustomDeckFieldChange("name", e.target.value)}
+            placeholder="Name your workout"
+          />
+        </div>
+        {SUITS.map((suit) => {
+          const currentValue = customDeckDraft.suits?.[suit.key] || "";
+          const optionsForSuit =
+            currentValue && !suitOptions.includes(currentValue)
+              ? [currentValue, ...suitOptions]
+              : suitOptions;
+          return (
+            <div key={`custom-${suit.key}`} className="flex items-center gap-2">
+              <span className="w-24 text-right text-white/80">
+                {suit.label}
+              </span>
+              <select
+                className="flex-1 border p-2 rounded bg-white text-black"
+                value={currentValue}
+                onChange={(e) =>
+                  onCustomDeckSuitChange(suit.key, e.target.value)
+                }
+              >
+                {optionsForSuit.map((opt) => (
+                  <option key={`custom-${suit.key}-${opt}`} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
+        <div className="flex flex-col gap-3 mt-2">
+          {[1, 2].map((slot) => {
+            const slotValue =
+              customDeckDraft.jokerSlots &&
+              (customDeckDraft.jokerSlots[slot] ||
+                customDeckDraft.jokerSlots[String(slot)])
+                ? customDeckDraft.jokerSlots[slot] ||
+                  customDeckDraft.jokerSlots[String(slot)]
+                : "none";
+            return (
+              <React.Fragment key={`custom-joker-${slot}`}>
+                <div className="flex items-center gap-3">
+                  <span className="w-32 text-right text-white font-semibold">
+                    {`Joker #${slot}`}
+                  </span>
+                  <select
+                    className="flex-1 border p-2 rounded bg-white text-black"
+                    value={slotValue}
+                    onChange={(e) =>
+                      onCustomDeckJokerChange(slot, e.target.value)
+                    }
+                >
+                  {JOKER_SLOT_OPTIONS.map((opt) => (
+                    <option
+                      key={`custom-joker-${slot}-${opt.value}`}
+                      value={opt.value}
+                    >
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+                {slot === 2 && <div style={{ height: 24 }} />}
+              </React.Fragment>
+            );
+          })}
+        </div>
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onSaveCustomDeck}
+            className="px-4 py-2 bg-blue-600 rounded-lg text-white text-sm font-semibold hover:bg-blue-500"
+          >
+            Save Workout
+          </button>
+          <button
+            type="button"
+            onClick={onCancelCustomDeck}
+            className="px-4 py-2 bg-transparent border border-white/40 rounded-lg text-sm font-semibold hover:bg-white/10"
+            style={{ color: "#ffffff" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -38,100 +232,75 @@ export default function Settings({
       className="flex flex-col items-stretch max-w-md w-full p-6 bg-white/5 rounded-xl border border-white/10 text-white"
       style={{ color: "#ffffff" }}
     >
-      <h2 className="text-2xl font-bold mb-4 text-white">Settings</h2>
-
-      {/* Exercises by Suit (first) */}
-      <div className="mb-2 font-semibold text-white">Exercises by Suit</div>
-      <div className="grid grid-cols-1 gap-3">
-        {SUITS.map((s) => (
-          <div key={s.key} className="flex items-center gap-2">
-            <span className="w-24 text-right text-white/80">{s.label}</span>
-            <input
-              className="flex-1 border p-2 rounded bg-white text-black"
-              value={exMap[s.key] || ""}
-              onChange={(e) => updateExercise(s.key, e.target.value)}
-              placeholder={`Workout for ${s.label}`}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Space then Difficulty Multiplier */}
-      <div style={{ height: 24 }} />
-      <label className="mb-2 font-semibold text-white">
-        Difficulty Multiplier
-      </label>
-      <select
-        className="border p-2 rounded bg-white text-black mb-4"
-        value={difficulty}
-        onChange={(e) => setDifficulty(Number(e.target.value))}
-      >
-        <option value={0.5}>0.5x (Easier)</option>
-        <option value={1}>1x (Standard)</option>
-        <option value={1.5}>1.5x (Hard)</option>
-        <option value={2}>2x (Insane)</option>
-      </select>
-
-      {/* Space then Ace value and Number of Jokers */}
-      <div style={{ height: 24 }} />
-      <label className="mb-2 font-semibold text-white">Ace Value (reps)</label>
-      <select
-        className="border p-2 rounded bg-white text-black mb-4"
-        value={aceHigh ? '14' : '1'}
-        onChange={(e) => setAceHigh(e.target.value === '14')}
-      >
-        <option value="1">Ace = 1</option>
-        <option value="14">Ace = 14</option>
-      </select>
-
-      <label className="mb-2 font-semibold text-white">Number of Jokers</label>
-      <select
-        className="border p-2 rounded bg-white text-black mb-4"
-        value={numJokers}
-        onChange={(e) => setNumJokers(Number(e.target.value))}
-      >
-        {Array.from({ length: 11 }, (_, i) => (
-          <option key={i} value={i}>
-            {i} {i === 1 ? "Joker" : "Jokers"}
-          </option>
-        ))}
-      </select>
-
-      {/* Space then Joker workouts list */}
-      <div style={{ height: 24 }} />
-      <div className="mb-2 font-semibold text-white">
-        Joker Workouts
-      </div>
-      <div className="flex flex-col gap-2 mb-3">
-        {jokerWorkouts.map((jw, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <input
-              className="flex-1 border p-2 rounded bg-white text-black"
-              value={jw}
-              onChange={(e) => updateJokerExercise(idx, e.target.value)}
-              placeholder={`Joker exercise #${idx + 1}`}
-            />
-            <button
-              type="button"
-              className="px-2 py-1 bg-red-600 text-white rounded"
-              onClick={() => removeJokerExercise(idx)}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <h2 className="text-2xl font-bold text-white">Settings</h2>
         <button
           type="button"
-          className="self-start px-3 py-2 bg-blue-600 text-white rounded"
-          onClick={addJokerExercise}
-          
+          onClick={resetDeck}
+          className="px-3 py-2 bg-blue-600 rounded-lg text-white text-sm font-semibold hover:bg-blue-500"
         >
-          Add Joker Exercise
+          Reset Deck
         </button>
       </div>
+
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <span className="w-32 text-right text-white font-semibold">
+            Deck Size
+          </span>
+          <select
+            className="flex-1 border p-2 rounded bg-white text-black"
+            value={deckSize}
+            onChange={(e) => setDeckSize(e.target.value)}
+          >
+            <option value="quarter">Quarter</option>
+            <option value="half">Half</option>
+            <option value="threequarters">Three Quarters</option>
+            <option value="full">Full</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="w-32 text-right text-white font-semibold">
+            Ace Value (reps)
+          </span>
+          <select
+            className="flex-1 border p-2 rounded bg-white text-black"
+            value={aceHigh ? "14" : "1"}
+            onChange={(e) => setAceHigh(e.target.value === "14")}
+          >
+            <option value="1">Ace = 1</option>
+            <option value="14">Ace = 14</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="w-32 text-right text-white font-semibold">
+            Face Card Value
+          </span>
+          <select
+            className="flex-1 border p-2 rounded bg-white text-black"
+            value={faceCardMode}
+            onChange={(e) => setFaceCardMode(e.target.value)}
+          >
+            <option value="ten">J/Q/K = 10</option>
+            <option value="progressive">J/Q/K = 11/12/13</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ height: 24 }} />
+
+      <div className="space-y-4">
+        {deckPresets.map((deck) => renderDeckSection(deck))}
+      </div>
+      <div>
+        <button
+          type="button"
+          onClick={onStartAddCustomDeck}
+          className="w-full px-4 py-2 bg-blue-600 rounded-lg text-white text-sm font-semibold hover:bg-blue-500"
+        >
+          Add Custom Workout
+        </button>
+      </div>
+      {renderCustomDeckForm()}
     </div>
   );
 }
-
-
-
