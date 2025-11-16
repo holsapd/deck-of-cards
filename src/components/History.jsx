@@ -2,9 +2,24 @@ import React from "react";
 
 function formatDate(value) {
   try {
-    return new Date(value).toLocaleString();
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return { date: value, time: "" };
+    }
+    return {
+      date: date.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "2-digit",
+      }),
+      time: date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
+    };
   } catch {
-    return value;
+    return { date: value, time: "" };
   }
 }
 
@@ -66,7 +81,15 @@ export default function History({ entries }) {
             {entries.map((entry) => (
               <tr key={entry.id} className="border-t border-white/10">
                 <td className="px-4 py-3 align-top border border-white/10">
-                  {formatDate(entry.completedAt)}
+                  {(() => {
+                    const { date, time } = formatDate(entry.completedAt);
+                    return (
+                      <>
+                        <div>{date}</div>
+                        {time && <div>{time}</div>}
+                      </>
+                    );
+                  })()}
                 </td>
                 <td className="px-4 py-3 align-top border border-white/10">
                   {entry.workoutName || "Workout"}
@@ -77,7 +100,7 @@ export default function History({ entries }) {
                       <span className="font-semibold">
                         {detail.workout || detail.suit}
                       </span>
-                      {` - ${detail.reps} reps`}
+                      {` - ${detail.reps}`}
                     </div>
                   ))}
                 </td>
