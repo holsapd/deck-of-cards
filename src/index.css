@@ -12,3 +12,9 @@ body {
   font-family: "Playfair Display", Georgia, serif;
   background-color: #111827; /* keeps your dark background consistent */
 }
+
+input,
+select,
+textarea {
+  font-size: 1.15rem;
+}

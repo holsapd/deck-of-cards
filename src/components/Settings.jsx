@@ -20,6 +20,8 @@ export default function Settings({
   setAceHigh,
   faceCardMode,
   setFaceCardMode,
+  keepScreenAwake,
+  setKeepScreenAwake,
   resetDeck,
   deckPresets,
   workoutOptions,
@@ -284,6 +286,20 @@ export default function Settings({
             <option value="ten">J/Q/K = 10</option>
             <option value="progressive">J/Q/K = 11/12/13</option>
           </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="w-32 text-right text-white font-semibold">
+            Keep Screen Awake
+          </span>
+          <label className="flex items-center gap-2 text-sm text-white">
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-blue-500"
+              checked={!!keepScreenAwake}
+              onChange={(e) => setKeepScreenAwake(e.target.checked)}
+            />
+            <span>Prevent the display from sleeping</span>
+          </label>
         </div>
       </div>
       <div style={{ height: 24 }} />

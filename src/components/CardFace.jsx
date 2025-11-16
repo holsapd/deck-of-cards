@@ -17,7 +17,8 @@ const faceArt = {
 };
 // Shared sizing keeps front/back cards consistent regardless of asset proportions
 const cardFrameStyle = {
-  width: "min(88vw, 320px)",
+  width: "100%",
+  maxWidth: "720px",
   aspectRatio: "2.5 / 3.5",
   fontFamily: "'Old Standard TT', 'Playfair Display', Georgia, serif",
   backgroundColor: "#ffffff",
@@ -58,7 +59,7 @@ export default function CardFace({
   if (showBack) {
     return (
       <motion.div
-        className="flex flex-col items-center"
+        className="flex flex-col items-center w-full"
         initial={
           isEndCard
             ? { opacity: 0, y: -120, rotate: 0, scale: 0.9 }
@@ -107,7 +108,7 @@ export default function CardFace({
                     padding: "12px 16px",
                     borderRadius: 14,
                     minWidth: "65%",
-                    fontSize: 24,
+                    fontSize: 40,
                     fontWeight: 700,
                     boxShadow: "0 8px 24px rgba(15,23,42,0.15)",
                     textAlign: "center",
@@ -146,7 +147,7 @@ export default function CardFace({
         animate={{ rotateY: 0, opacity: 1 }}
         exit={{ rotateY: 90, opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex flex-col items-center justify-center"
+        className="flex flex-col items-center justify-center w-full"
       >
         {isJokerFixed ? (
           <div
@@ -180,7 +181,7 @@ export default function CardFace({
                   padding: "12px 16px",
                   borderRadius: 14,
                   minWidth: "65%",
-                  fontSize: 24,
+                  fontSize: 40,
                   fontWeight: 700,
                   transform: "translateY(10px)",
                 }}
@@ -216,8 +217,8 @@ export default function CardFace({
                 color: textColor,
               }}
             >
-              <div style={{ lineHeight: 1, fontSize: 37 }}>{card.rank}</div>
-              <div style={{ lineHeight: 1, fontSize: 45 }}>{card.suit}</div>
+              <div style={{ lineHeight: 1, fontSize: 69 }}>{card.rank}</div>
+              <div style={{ lineHeight: 1, fontSize: 69 }}>{card.suit}</div>
             </div>
 
             {/* Bottom-right corner */}
@@ -232,8 +233,8 @@ export default function CardFace({
                 color: textColor,
               }}
             >
-              <div style={{ lineHeight: 1, fontSize: 37 }}>{card.rank}</div>
-              <div style={{ lineHeight: 1, fontSize: 45 }}>{card.suit}</div>
+              <div style={{ lineHeight: 1, fontSize: 69 }}>{card.rank}</div>
+              <div style={{ lineHeight: 1, fontSize: 69 }}>{card.suit}</div>
             </div>
 
             {/* Center artwork / workout */}
@@ -271,14 +272,14 @@ export default function CardFace({
                     <div
                       style={{
                         color: "#111827",
-                        fontSize: 24,
+                        fontSize: 40,
                         fontWeight: 700,
                         marginBottom: 6,
                       }}
                     >
                       {workout}
                     </div>
-                    <div style={{ color: "#111827", fontSize: 20 }}>
+                    <div style={{ color: "#111827", fontSize: 40 }}>
                       {reps} {reps === 1 ? "rep" : "reps"}
                     </div>
                   </div>
@@ -297,14 +298,14 @@ export default function CardFace({
                   <div
                     style={{
                       color: "#111827",
-                      fontSize: 25,
+                      fontSize: 40,
                       fontWeight: 600,
                       marginBottom: 6,
                     }}
                   >
                     {workout}
                   </div>
-                  <div style={{ color: "#374151", fontSize: 25 }}>
+                  <div style={{ color: "#374151", fontSize: 40 }}>
                     {reps} {reps === 1 ? "rep" : "reps"}
                   </div>
                 </>

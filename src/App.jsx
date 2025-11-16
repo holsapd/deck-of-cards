@@ -246,6 +246,8 @@ export default function DeckOfCardsWorkout() {
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [currentWorkoutName, setCurrentWorkoutName] = useState("Standard Deck");
   const [workoutCompleted, setWorkoutCompleted] = useState(false);
+  const [keepScreenAwake, setKeepScreenAwake] = useState(false);
+  const wakeLockRef = React.useRef(null);
 
   const availableJokerWorkouts = React.useMemo(() => {
     if (randomJokerList && randomJokerList.length) return randomJokerList;
@@ -335,6 +337,8 @@ export default function DeckOfCardsWorkout() {
         ["ten", "progressive"].includes(s.faceCardMode)
       )
         setFaceCardMode(s.faceCardMode);
+      if (typeof s.keepScreenAwake === "boolean")
+        setKeepScreenAwake(s.keepScreenAwake);
       if (typeof s.selectedDeckId === "string") {
         setSelectedDeckId(s.selectedDeckId);
       }
@@ -345,6 +349,56 @@ export default function DeckOfCardsWorkout() {
   React.useEffect(() => {
     syncDeckSelection();
   }, [syncDeckSelection]);
+
+  React.useEffect(() => {
+    if (typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
+    let cancelled = false;
+
+    const releaseCurrent = () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
+    };
+
+    const requestWakeLock = async () => {
+      if (!keepScreenAwake || cancelled) {
+        releaseCurrent();
+        return;
+      }
+      try {
+        const lock = await navigator.wakeLock.request("screen");
+        if (cancelled) {
+          lock.release().catch(() => {});
+          return;
+        }
+        wakeLockRef.current = lock;
+        lock.addEventListener("release", () => {
+          wakeLockRef.current = null;
+          if (!cancelled && keepScreenAwake) {
+            requestWakeLock();
+          }
+        });
+      } catch (err) {
+        console.warn("Wake lock request failed", err);
+      }
+    };
+
+    requestWakeLock();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && keepScreenAwake) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", handleVisibility);
+      releaseCurrent();
+    };
+  }, [keepScreenAwake]);
 
   // Persist settings to localStorage
   React.useEffect(() => {
@@ -361,6 +415,7 @@ export default function DeckOfCardsWorkout() {
         faceCardMode,
         jokerSlots,
         workoutHistory,
+        keepScreenAwake,
       };
       localStorage.setItem("docw_settings", JSON.stringify(data));
     } catch {}
@@ -376,6 +431,7 @@ export default function DeckOfCardsWorkout() {
     faceCardMode,
     jokerSlots,
     workoutHistory,
+    keepScreenAwake,
   ]);
 
   const resetDeck = React.useCallback(
@@ -807,6 +863,8 @@ export default function DeckOfCardsWorkout() {
               setAceHigh={setAceHigh}
               faceCardMode={faceCardMode}
               setFaceCardMode={setFaceCardMode}
+              keepScreenAwake={keepScreenAwake}
+              setKeepScreenAwake={setKeepScreenAwake}
               resetDeck={resetDeck}
               deckPresets={deckPresets}
               workoutOptions={workoutOptions}
@@ -891,7 +949,7 @@ export default function DeckOfCardsWorkout() {
 
               <div
                 onClick={handleCardClick}
-                className={`transition-transform duration-200 ease-in-out ${
+                className={`w-full transition-transform duration-200 ease-in-out ${
                   flipped ? "scale-90 opacity-0" : "scale-100 opacity-100"
                 }`}
               >
@@ -903,37 +961,43 @@ export default function DeckOfCardsWorkout() {
                   preWorkoutOverlay={preWorkoutOverlay}
                   isFlipped={!!current}
                 />
-                {isEndOfDeck && (
-                  <>
-                    <div
-                      className="mt-4 w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                      style={{ color: "#ffffff" }}
-                    >
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {SUIT_KEYS.map((key) => (
-                          <div key={`summary-${key}`} className="flex flex-col">
-                            <span className="text-sm font-semibold">
-                              {exMap[key] || "Workout"} -{" "}
-                              {workoutStats.suits[key] || 0} reps
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-4 font-semibold">
-                        Total Reps: {totalRepsCompleted}
-                      </div>
-                      <div className="mt-2 text-sm text-white/80">
-                        <span className="font-semibold text-white">
-                          Jokers:
-                        </span>{" "}
-                        {workoutStats.jokers.length
-                          ? workoutStats.jokers.join(", ")
-                          : "No Jokers Drawn"}
-                      </div>
-                    </div>
-                  </>
-                )}
               </div>
+
+              {isEndOfDeck && (
+                <>
+                  <div
+                    className="mt-4 w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
+                    style={{ color: "#ffffff" }}
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {SUIT_KEYS.map((key) => (
+                        <div key={`summary-${key}`} className="flex flex-col">
+                          <span className="text-sm font-semibold">
+                            {exMap[key] || "Workout"} -{" "}
+                            {workoutStats.suits[key] || 0} reps
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 font-semibold">
+                      Total Reps: {totalRepsCompleted}
+                    </div>
+                    <div className="mt-2 text-sm text-white/80">
+                      <span className="font-semibold text-white">Jokers:</span>{" "}
+                      {workoutStats.jokers.length
+                        ? workoutStats.jokers.join(", ")
+                        : "No Jokers Drawn"}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => resetDeck()}
+                    className="mt-4 w-full max-w-md px-4 py-2 bg-blue-600 rounded-lg text-white text-sm font-semibold hover:bg-blue-500"
+                  >
+                    Reset Deck
+                  </button>
+                </>
+              )}
 
               <div
                 className="mt-8 text-xs text-white text-center"
