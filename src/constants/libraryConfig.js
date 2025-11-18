@@ -20,6 +20,73 @@ export const LEVEL_OPTIONS = [
 ];
 
 export const FOCUS_OPTIONS = ["Full Body", "Upper Body", "Lower Body", "Core"];
+export const FOCUS_VALUE_PREFIX = "__focus__:";
+export const FOCUS_LABEL_PREFIX = "Focus: ";
+
+export function focusValueFor(focus) {
+  return `${FOCUS_VALUE_PREFIX}${focus}`;
+}
+
+export function formatFocusLabel(focus) {
+  return `${FOCUS_LABEL_PREFIX}${focus}`;
+}
+
+export function getFocusKeyFromValue(value) {
+  if (typeof value !== "string") return null;
+  if (value.startsWith(FOCUS_VALUE_PREFIX)) {
+    return value.slice(FOCUS_VALUE_PREFIX.length);
+  }
+  if (value.startsWith(FOCUS_LABEL_PREFIX)) {
+    return value.slice(FOCUS_LABEL_PREFIX.length);
+  }
+  return null;
+}
+
+export function normalizeFocusValue(value) {
+  const focus = getFocusKeyFromValue(value);
+  if (!focus) {
+    return typeof value === "string" ? value : "";
+  }
+  return focusValueFor(focus);
+}
+
+export const FOCUS_PLACEHOLDER_OPTIONS = FOCUS_OPTIONS.map((focus) => ({
+  focus,
+  value: focusValueFor(focus),
+  label: formatFocusLabel(focus),
+}));
+
+export const WORKOUT_MULTIPLIER_OPTIONS = [0.5, 1, 1.5, 2, 3];
+
+export function formatWorkoutLabel(name, multiplier = 1) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return "";
+  const numericMultiplier = Number(multiplier) || 1;
+  return numericMultiplier === 1
+    ? trimmed
+    : `${trimmed} (${numericMultiplier}x)`;
+}
+
+export function parseWorkoutLabel(value) {
+  const trimmed = (value || "").trim();
+  if (!trimmed) {
+    return { workout: "", multiplier: 1 };
+  }
+  const match = trimmed.match(/^(.*)\((\d+(?:\.\d+)?)x\)\s*$/i);
+  if (match) {
+    return {
+      workout: match[1].trim(),
+      multiplier: Number(match[2]) || 1,
+    };
+  }
+  return { workout: trimmed, multiplier: 1 };
+}
+
+export function getAssignmentLabel(value) {
+  const focus = getFocusKeyFromValue(value);
+  if (focus) return formatFocusLabel(focus);
+  return (value || "").trim();
+}
 
 export const WEIGHT_OPTIONS = [
   { value: "No", label: "No" },
@@ -31,6 +98,7 @@ export const DEFAULT_CUSTOM_ENTRY = {
   difficulty: 1,
   focus: "Full Body",
   weights: "No",
+  multiplier: 1,
 };
 
 export const WORKOUT_LIBRARY_DATA = [
@@ -120,6 +188,14 @@ export const WORKOUT_LIBRARY_DATA = [
   },
   {
     include: false,
+    workout: "Squats (2x)",
+    difficulty: 2,
+    focus: "Lower Body",
+    weights: "No",
+    multiplier: 2,
+  },
+  {
+    include: false,
     workout: "Box Jumps",
     difficulty: 3,
     focus: "Lower Body",
@@ -155,10 +231,11 @@ export const WORKOUT_LIBRARY_DATA = [
   },
   {
     include: false,
-    workout: "Hanging Leg Raise",
+    workout: "Hanging Leg Raise (0.5x)",
     difficulty: 3,
     focus: "Core",
     weights: "Yes",
+    multiplier: 0.5,
   },
   {
     include: false,

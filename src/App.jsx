@@ -7,6 +7,14 @@ import {
   DEFAULT_CUSTOM_ENTRY,
   WORKOUT_LIBRARY_DATA,
   JOKER_LIBRARY_DATA,
+  FOCUS_PLACEHOLDER_OPTIONS,
+  formatFocusLabel,
+  getFocusKeyFromValue,
+  normalizeFocusValue,
+  getAssignmentLabel,
+  formatWorkoutLabel,
+  parseWorkoutLabel,
+  WORKOUT_MULTIPLIER_OPTIONS,
 } from "./constants/libraryConfig";
 import { makeDeckV2, DECK_SIZE_LIMITS } from "./utils/deck";
 
@@ -54,31 +62,6 @@ function mergeLibrary(defaultRows, savedRows) {
 
   return merged;
 }
-// Top-level exercise map keyed by Unicode escapes
-export const EX_MAP = {
-  "\u2660": "Lunges",
-  "\u2665": "Squats",
-  "\u2666": "Push-ups",
-  "\u2663": "Sit-ups",
-};
-
-const DEFAULT_EXERCISES = {
-  "\u2660": "Lunges",
-  "\u2665": "Squats",
-  "\u2666": "Push-ups",
-  "\u2663": "Sit-ups",
-  JOKER: "2 min plank hold",
-};
-
-// Normalized exercise map keyed by Unicode suits
-const EXERCISES = {
-  "\u2660": "Lunges",
-  "\u2665": "Squats",
-  "\u2666": "Push-ups",
-  "\u2663": "Sit-ups",
-};
-
-const BASIC_FALLBACK_WORKOUTS = ["Push-ups", "Sit-ups", "Squats", "Lunges"];
 const SUIT_KEYS = ["\u2660", "\u2665", "\u2666", "\u2663"];
 const SUIT_LABELS = {
   "\u2660": "Spades",
@@ -86,6 +69,76 @@ const SUIT_LABELS = {
   "\u2666": "Diamonds",
   "\u2663": "Clubs",
 };
+
+const BASE_WORKOUT_MAP = Object.freeze({
+  "\u2660": "Lunges",
+  "\u2665": "Squats",
+  "\u2666": "Push-ups",
+  "\u2663": "Sit-ups",
+  JOKER: "2 min plank hold",
+});
+
+export const EX_MAP = Object.freeze(
+  SUIT_KEYS.reduce((acc, key) => {
+    acc[key] = BASE_WORKOUT_MAP[key];
+    return acc;
+  }, {})
+);
+
+const BASIC_FALLBACK_WORKOUTS = SUIT_KEYS.map((key) => BASE_WORKOUT_MAP[key]);
+
+function normalizeAssignmentValue(value) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (getFocusKeyFromValue(trimmed)) return normalizeFocusValue(trimmed);
+  const parsed = parseWorkoutLabel(trimmed);
+  return formatWorkoutLabel(parsed.workout, parsed.multiplier);
+}
+
+function normalizeSuitAssignments(suits) {
+  const normalized = {};
+  SUIT_KEYS.forEach((key) => {
+    const raw =
+      suits && typeof suits === "object"
+        ? suits[key] ?? suits[String(key)]
+        : "";
+    normalized[key] = normalizeAssignmentValue(raw || "");
+  });
+  return normalized;
+}
+
+function parseWorkoutWithMultiplier(value) {
+  const parsed = parseWorkoutLabel(typeof value === "string" ? value : "");
+  return {
+    workout: (parsed.workout || "").trim(),
+    multiplier: Number(parsed.multiplier) || 1,
+  };
+}
+
+function sanitizeWorkoutRows(rows) {
+  return (rows || []).map((row) => {
+    const parsed = parseWorkoutWithMultiplier(row.workout);
+    const explicitMultiplier = Number(row.multiplier);
+    const finalMultiplier = Number.isNaN(explicitMultiplier)
+      ? parsed.multiplier
+      : explicitMultiplier || parsed.multiplier || 1;
+    const formatted = formatWorkoutLabel(parsed.workout, finalMultiplier);
+    return {
+      ...row,
+      workout: formatted,
+      multiplier: finalMultiplier,
+    };
+  });
+}
+
+function getWorkoutMetaFromAssignment(value) {
+  const trimmed = (value || "").trim();
+  if (!trimmed || getFocusKeyFromValue(trimmed)) {
+    return { workout: "", multiplier: 1 };
+  }
+  return parseWorkoutWithMultiplier(trimmed);
+}
 
 function createInitialStats() {
   const suits = {};
@@ -97,11 +150,47 @@ function createInitialStats() {
 
 const DEFAULT_JOKER_SLOTS = { 1: "random", 2: "none" };
 
+const MAX_HISTORY_ENTRIES = 1000;
+
+const STORAGE_KEYS = Object.freeze({
+  deckPresets: "docw_deck_presets",
+  selectedDeckId: "docw_selected_deck",
+  numJokers: "docw_num_jokers",
+  deckSize: "docw_deck_size",
+  exMap: "docw_exercise_map",
+  workoutLibrary: "docw_workout_library",
+  jokerLibrary: "docw_joker_library",
+  aceHigh: "docw_ace_high",
+  faceCardMode: "docw_face_card_mode",
+  jokerSlots: "docw_joker_slots",
+  workoutHistory: "docw_workout_history",
+  keepScreenAwake: "docw_keep_screen_awake",
+  randomSettings: "docw_random_settings",
+});
+
+const LEGACY_STORAGE_KEY = "docw_settings";
+
+function readStoredJSON(key) {
+  if (typeof localStorage === "undefined") return undefined;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function usePersistedSlice(key, value, persistFn) {
+  React.useEffect(() => {
+    persistFn(key, value);
+  }, [key, value, persistFn]);
+}
+
 const DEFAULT_DECK_PRESETS = [
   {
     id: "standard",
     name: "Standard Deck",
-    suits: { ...DEFAULT_EXERCISES },
+    suits: { ...EX_MAP },
     jokerSlots: { 1: "random", 2: "none" },
   },
   {
@@ -149,7 +238,7 @@ function countActiveJokers(slots) {
 function cloneDeckPreset(deck) {
   return {
     ...deck,
-    suits: { ...deck.suits },
+    suits: normalizeSuitAssignments(deck.suits),
     jokerSlots: { ...deck.jokerSlots },
   };
 }
@@ -173,9 +262,11 @@ function normalizeDeckPreset(entry, fallbackId) {
   SUIT_KEYS.forEach((key) => {
     const value =
       entry.suits && typeof entry.suits === "object"
-        ? entry.suits[key] || entry.suits[String(key)]
+        ? entry.suits[key] ?? entry.suits[String(key)]
         : "";
-    suits[key] = value || DEFAULT_EXERCISES[key] || "";
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    const fallback = (EX_MAP[key] || "").trim();
+    suits[key] = normalizeAssignmentValue(trimmed || fallback || "");
   });
   const jokerSlots = normalizeJokerSlots(entry.jokerSlots);
   return { id, name, suits, jokerSlots };
@@ -203,8 +294,59 @@ function mergeDeckPresets(saved) {
 function getCustomDeckTemplate() {
   return {
     name: "",
-    suits: { ...DEFAULT_EXERCISES },
+    suits: normalizeSuitAssignments(EX_MAP),
     jokerSlots: { ...DEFAULT_JOKER_SLOTS },
+  };
+}
+
+function getDefaultRandomSettings() {
+  return {
+    levels: { 1: true, 2: false, 3: false },
+    gymAccess: "no",
+    deckSize: "full",
+    aceHigh: false,
+    faceCardMode: "progressive",
+    numJokers: 1,
+    includeFocus: false,
+  };
+}
+
+function mergeRandomSettings(stored) {
+  const defaults = getDefaultRandomSettings();
+  if (!stored || typeof stored !== "object") return defaults;
+  const mergedLevels = { ...defaults.levels };
+  if (stored.levels && typeof stored.levels === "object") {
+    Object.entries(stored.levels).forEach(([level, value]) => {
+      if (mergedLevels[level] !== undefined) {
+        mergedLevels[level] = !!value;
+      }
+    });
+  }
+  const normalizedDeckSize =
+    typeof stored.deckSize === "string" && DECK_SIZE_LIMITS[stored.deckSize] !== undefined
+      ? stored.deckSize
+      : defaults.deckSize;
+  const normalizedFaceCardMode =
+    stored.faceCardMode === "ten" || stored.faceCardMode === "progressive"
+      ? stored.faceCardMode
+      : defaults.faceCardMode;
+  const normalizedGymAccess =
+    stored.gymAccess === "yes" || stored.gymAccess === "no"
+      ? stored.gymAccess
+      : defaults.gymAccess;
+  return {
+    ...defaults,
+    ...stored,
+    levels: mergedLevels,
+    gymAccess: normalizedGymAccess,
+    deckSize: normalizedDeckSize,
+    aceHigh: typeof stored.aceHigh === "boolean" ? stored.aceHigh : defaults.aceHigh,
+    faceCardMode: normalizedFaceCardMode,
+    numJokers: clampJokerCount(stored.numJokers),
+    includeFocus:
+      typeof stored.includeFocus === "boolean"
+        ? stored.includeFocus
+        : defaults.includeFocus,
   };
 }
 
@@ -220,8 +362,10 @@ export default function DeckOfCardsWorkout() {
   const [totalCards, setTotalCards] = useState(initialDeck.length);
   const [current, setCurrent] = useState(null);
   const [flipped, setFlipped] = useState(false);
-  const [exMap, setExMap] = useState(EX_MAP);
-  const [workoutLibrary, setWorkoutLibrary] = useState(WORKOUT_LIBRARY_DATA);
+  const [exMap, setExMap] = useState(() => normalizeSuitAssignments(EX_MAP));
+  const [workoutLibrary, setWorkoutLibrary] = useState(() =>
+    sanitizeWorkoutRows(WORKOUT_LIBRARY_DATA)
+  );
   const [jokerLibrary, setJokerLibrary] = useState(JOKER_LIBRARY_DATA);
   const [newWorkoutEntry, setNewWorkoutEntry] = useState({
     ...DEFAULT_CUSTOM_ENTRY,
@@ -234,20 +378,74 @@ export default function DeckOfCardsWorkout() {
   const [hasStarted, setHasStarted] = useState(false);
   const [aceHigh, setAceHigh] = useState(false);
   const [faceCardMode, setFaceCardMode] = useState("progressive");
-  const [randomSettings, setRandomSettings] = useState({
-    levels: { 1: true, 2: false, 3: false },
-    gymAccess: "no",
-    deckSize: "full",
-    aceHigh: false,
-    faceCardMode: "progressive",
-    numJokers: 1,
-  });
+  const [randomSettings, setRandomSettings] = useState(() =>
+    getDefaultRandomSettings()
+  );
   const [workoutStats, setWorkoutStats] = useState(() => createInitialStats());
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [currentWorkoutName, setCurrentWorkoutName] = useState("Standard Deck");
   const [workoutCompleted, setWorkoutCompleted] = useState(false);
   const [keepScreenAwake, setKeepScreenAwake] = useState(false);
   const wakeLockRef = React.useRef(null);
+  const persistQueueRef = React.useRef({});
+  const persistTimerRef = React.useRef(null);
+
+  const flushPersistQueue = React.useCallback(() => {
+    const entries = Object.entries(persistQueueRef.current);
+    persistQueueRef.current = {};
+    persistTimerRef.current = null;
+    if (!entries.length || typeof localStorage === "undefined") return;
+    entries.forEach(([stateKey, value]) => {
+      const storageKey = STORAGE_KEYS[stateKey];
+      if (!storageKey) return;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(value));
+      } catch {}
+    });
+  }, []);
+
+  const enqueuePersist = React.useCallback(
+    (stateKey, value) => {
+      if (!STORAGE_KEYS[stateKey]) return;
+      persistQueueRef.current[stateKey] = value;
+      if (persistTimerRef.current !== null) return;
+      const timerFn =
+        typeof window !== "undefined" && typeof window.setTimeout === "function"
+          ? window.setTimeout
+          : setTimeout;
+      persistTimerRef.current = timerFn(() => {
+        flushPersistQueue();
+      }, 400);
+    },
+    [flushPersistQueue]
+  );
+
+  React.useEffect(() => {
+    return () => {
+      if (persistTimerRef.current !== null) {
+        const clear =
+          typeof window !== "undefined" &&
+          typeof window.clearTimeout === "function"
+            ? window.clearTimeout
+            : clearTimeout;
+        clear(persistTimerRef.current);
+      }
+    };
+  }, []);
+
+  usePersistedSlice("deckPresets", deckPresets, enqueuePersist);
+  usePersistedSlice("selectedDeckId", selectedDeckId, enqueuePersist);
+  usePersistedSlice("numJokers", numJokers, enqueuePersist);
+  usePersistedSlice("deckSize", deckSize, enqueuePersist);
+  usePersistedSlice("exMap", exMap, enqueuePersist);
+  usePersistedSlice("workoutLibrary", workoutLibrary, enqueuePersist);
+  usePersistedSlice("jokerLibrary", jokerLibrary, enqueuePersist);
+  usePersistedSlice("aceHigh", aceHigh, enqueuePersist);
+  usePersistedSlice("faceCardMode", faceCardMode, enqueuePersist);
+  usePersistedSlice("jokerSlots", jokerSlots, enqueuePersist);
+  usePersistedSlice("workoutHistory", workoutHistory, enqueuePersist);
+  usePersistedSlice("keepScreenAwake", keepScreenAwake, enqueuePersist);
+  usePersistedSlice("randomSettings", randomSettings, enqueuePersist);
 
   const availableJokerWorkouts = React.useMemo(() => {
     if (randomJokerList && randomJokerList.length) return randomJokerList;
@@ -257,24 +455,62 @@ export default function DeckOfCardsWorkout() {
       .filter(Boolean);
   }, [jokerLibrary, randomJokerList]);
 
-  const workoutOptions = React.useMemo(() => {
-    const names = new Set();
-    (workoutLibrary || []).forEach((row) => {
-      const name = (row.workout || "").trim();
-      if (name) names.add(name);
-    });
-    deckPresets.forEach((deckPreset) => {
-      Object.values(deckPreset.suits || {}).forEach((name) => {
-        const trimmed = (name || "").trim();
-        if (trimmed) names.add(trimmed);
+  const focusWorkoutPools = React.useMemo(() => {
+    const pools = {};
+    const addRows = (rows) => {
+      (rows || []).forEach((row) => {
+        const focus = (row.focus || "").trim();
+        const workoutName = (row.workout || "").trim();
+        if (!focus || !workoutName) return;
+        if (!pools[focus]) pools[focus] = new Set();
+        pools[focus].add(normalizeAssignmentValue(workoutName));
       });
+    };
+    addRows(workoutLibrary);
+    addRows(WORKOUT_LIBRARY_DATA);
+    const result = {};
+    Object.entries(pools).forEach(([focus, map]) => {
+      result[focus] = Array.from(map.values());
     });
-    if (!names.size) {
-      BASIC_FALLBACK_WORKOUTS.forEach((fallback) => names.add(fallback));
+    return result;
+  }, [workoutLibrary]);
+
+  const getRandomWorkoutForFocus = React.useCallback(
+    (focusName) => {
+      const pool = focusWorkoutPools[focusName] || [];
+      if (!pool.length) return "";
+      return pool[Math.floor(Math.random() * pool.length)];
+    },
+    [focusWorkoutPools]
+  );
+
+  const workoutOptions = React.useMemo(() => {
+    const optionMap = new Map();
+    const addOption = (raw) => {
+      const trimmed = (raw || "").trim();
+      if (!trimmed || getFocusKeyFromValue(trimmed)) return;
+      const normalized = normalizeAssignmentValue(trimmed);
+      if (!normalized) return;
+      if (!optionMap.has(normalized)) {
+        optionMap.set(normalized, {
+          value: normalized,
+          label: normalized,
+        });
+      }
+    };
+    (workoutLibrary || []).forEach((row) => addOption(row.workout));
+    deckPresets.forEach((deckPreset) => {
+      Object.values(deckPreset.suits || {}).forEach((assignment) =>
+        addOption(assignment)
+      );
+    });
+    if (!optionMap.size) {
+      BASIC_FALLBACK_WORKOUTS.forEach((fallback) => addOption(fallback));
     }
-    return Array.from(names).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" })
+    const workoutEntries = Array.from(optionMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
     );
+    return [...FOCUS_PLACEHOLDER_OPTIONS, ...workoutEntries];
   }, [deckPresets, workoutLibrary]);
 
   const syncDeckSelection = React.useCallback(
@@ -283,7 +519,7 @@ export default function DeckOfCardsWorkout() {
       const preset =
         deckPresets.find((d) => d.id === deckId) || deckPresets[0] || null;
       if (!preset) return;
-      setExMap({ ...preset.suits });
+      setExMap(normalizeSuitAssignments(preset.suits));
       const slots = { ...preset.jokerSlots };
       setJokerSlots(slots);
       setNumJokers(countActiveJokers(slots));
@@ -296,53 +532,84 @@ export default function DeckOfCardsWorkout() {
   // Load settings from localStorage
   React.useEffect(() => {
     try {
-      const raw = localStorage.getItem("docw_settings");
-      if (!raw) return;
-      const s = JSON.parse(raw);
-      if (Array.isArray(s.deckPresets)) {
-        const merged = mergeDeckPresets(s.deckPresets);
+      if (typeof localStorage === "undefined") return;
+      const sliceData = {};
+      let hasSliceData = false;
+      Object.entries(STORAGE_KEYS).forEach(([stateKey, storageKey]) => {
+        const value = readStoredJSON(storageKey);
+        if (value !== undefined) {
+          sliceData[stateKey] = value;
+          hasSliceData = true;
+        }
+      });
+      const legacyData = hasSliceData
+        ? null
+        : readStoredJSON(LEGACY_STORAGE_KEY);
+      const source = hasSliceData ? sliceData : legacyData;
+      if (!source || typeof source !== "object") return;
+
+      if (Array.isArray(source.deckPresets)) {
+        const merged = mergeDeckPresets(source.deckPresets);
         setDeckPresets(merged);
-        if (typeof s.selectedDeckId === "string") {
-          setSelectedDeckId(s.selectedDeckId);
+        const fallbackDeck = merged[0];
+        const nextDeckId =
+          typeof source.selectedDeckId === "string"
+            ? source.selectedDeckId
+            : fallbackDeck?.id;
+        if (nextDeckId) {
+          setSelectedDeckId(nextDeckId);
           const preset =
-            merged.find((d) => d.id === s.selectedDeckId) || merged[0];
+            merged.find((d) => d.id === nextDeckId) || fallbackDeck;
           if (preset) {
-            setExMap({ ...preset.suits });
-            const slots = { ...preset.jokerSlots };
+            setExMap(normalizeSuitAssignments(preset.suits));
+            const slots = normalizeJokerSlots(preset.jokerSlots);
             setJokerSlots(slots);
             setNumJokers(countActiveJokers(slots));
             setCurrentWorkoutName(preset.name || "Custom Deck");
           }
         }
       } else {
-        if (typeof s.numJokers === "number") {
-          const clamped = clampJokerCount(s.numJokers);
+        if (typeof source.selectedDeckId === "string") {
+          setSelectedDeckId(source.selectedDeckId);
+        }
+        if (source.exMap && typeof source.exMap === "object")
+          setExMap(normalizeSuitAssignments(source.exMap));
+        if (source.jokerSlots && typeof source.jokerSlots === "object") {
+          const slots = normalizeJokerSlots(source.jokerSlots);
+          setJokerSlots(slots);
+          setNumJokers(countActiveJokers(slots));
+        } else if (typeof source.numJokers === "number") {
+          const clamped = clampJokerCount(source.numJokers);
           setNumJokers(clamped);
           setJokerSlots(jokerSlotsFromCount(clamped));
         }
       }
+
       if (
-        typeof s.deckSize === "string" &&
-        DECK_SIZE_LIMITS[s.deckSize] !== undefined
+        typeof source.deckSize === "string" &&
+        DECK_SIZE_LIMITS[source.deckSize] !== undefined
       )
-        setDeckSize(s.deckSize);
-      if (s.exMap && typeof s.exMap === "object") setExMap(s.exMap);
-      if (Array.isArray(s.workoutLibrary))
-        setWorkoutLibrary(mergeLibrary(WORKOUT_LIBRARY_DATA, s.workoutLibrary));
-      if (Array.isArray(s.jokerLibrary))
-        setJokerLibrary(mergeLibrary(JOKER_LIBRARY_DATA, s.jokerLibrary));
-      if (typeof s.aceHigh === "boolean") setAceHigh(s.aceHigh);
+        setDeckSize(source.deckSize);
+      if (Array.isArray(source.workoutLibrary))
+        setWorkoutLibrary(
+          sanitizeWorkoutRows(
+            mergeLibrary(WORKOUT_LIBRARY_DATA, source.workoutLibrary)
+          )
+        );
+      if (Array.isArray(source.jokerLibrary))
+        setJokerLibrary(mergeLibrary(JOKER_LIBRARY_DATA, source.jokerLibrary));
+      if (typeof source.aceHigh === "boolean") setAceHigh(source.aceHigh);
       if (
-        typeof s.faceCardMode === "string" &&
-        ["ten", "progressive"].includes(s.faceCardMode)
+        typeof source.faceCardMode === "string" &&
+        ["ten", "progressive"].includes(source.faceCardMode)
       )
-        setFaceCardMode(s.faceCardMode);
-      if (typeof s.keepScreenAwake === "boolean")
-        setKeepScreenAwake(s.keepScreenAwake);
-      if (typeof s.selectedDeckId === "string") {
-        setSelectedDeckId(s.selectedDeckId);
-      }
-      if (Array.isArray(s.workoutHistory)) setWorkoutHistory(s.workoutHistory);
+        setFaceCardMode(source.faceCardMode);
+      if (typeof source.keepScreenAwake === "boolean")
+        setKeepScreenAwake(source.keepScreenAwake);
+      if (source.randomSettings && typeof source.randomSettings === "object")
+        setRandomSettings(mergeRandomSettings(source.randomSettings));
+      if (Array.isArray(source.workoutHistory))
+        setWorkoutHistory(source.workoutHistory.slice(0, MAX_HISTORY_ENTRIES));
     } catch {}
   }, []);
 
@@ -401,39 +668,6 @@ export default function DeckOfCardsWorkout() {
   }, [keepScreenAwake]);
 
   // Persist settings to localStorage
-  React.useEffect(() => {
-    try {
-      const data = {
-        deckPresets,
-        selectedDeckId,
-        numJokers,
-        deckSize,
-        exMap,
-        workoutLibrary,
-        jokerLibrary,
-        aceHigh,
-        faceCardMode,
-        jokerSlots,
-        workoutHistory,
-        keepScreenAwake,
-      };
-      localStorage.setItem("docw_settings", JSON.stringify(data));
-    } catch {}
-  }, [
-    deckPresets,
-    selectedDeckId,
-    numJokers,
-    deckSize,
-    exMap,
-    workoutLibrary,
-    jokerLibrary,
-    aceHigh,
-    faceCardMode,
-    jokerSlots,
-    workoutHistory,
-    keepScreenAwake,
-  ]);
-
   const resetDeck = React.useCallback(
     (options) => {
       const jokerCount =
@@ -477,6 +711,16 @@ export default function DeckOfCardsWorkout() {
         jokers: [...prev.jokers, picked],
       }));
     } else {
+      const assignedValue = exMap[next.suit];
+      const focusName = getFocusKeyFromValue(assignedValue);
+      if (focusName) {
+        const pick = getRandomWorkoutForFocus(focusName);
+        if (pick) {
+          next.focusWorkoutPick = pick;
+        } else {
+          next.focusWorkoutPick = formatFocusLabel(focusName);
+        }
+      }
       const repsValue = repsFor(next);
       setWorkoutStats((prev) => {
         const suits = { ...prev.suits };
@@ -497,6 +741,17 @@ export default function DeckOfCardsWorkout() {
     }, 200);
   }
 
+  const getCardMultiplier = (card) => {
+    if (!card || card.rank === "Joker" || card.rank === "BACK") return 1;
+    if (card.focusWorkoutPick) {
+      return parseWorkoutWithMultiplier(card.focusWorkoutPick).multiplier || 1;
+    }
+    const assignmentValue = exMap[card.suit];
+    if (getFocusKeyFromValue(assignmentValue)) return 1;
+    const meta = getWorkoutMetaFromAssignment(assignmentValue);
+    return meta.multiplier || 1;
+  };
+
   const repsFor = (card) => {
     if (!card || card.rank === "Joker" || card.rank === "BACK") return 0;
     const faceValues =
@@ -506,20 +761,23 @@ export default function DeckOfCardsWorkout() {
     const base = isNaN(card.rank)
       ? { A: aceHigh ? 14 : 1, ...faceValues }[card.rank]
       : Number(card.rank);
-    return base || 0;
+    const multiplier = getCardMultiplier(card);
+    const total = Math.ceil((base || 0) * multiplier);
+    return total > 0 ? total : 0;
   };
 
   const exerciseFor = (card) => {
     if (!card) return "";
     if (card.rank === "Joker")
       return card.jokerWorkoutPick || "Wildcard (Joker Workout)";
-    return exMap[card.suit] || "";
+    if (card.focusWorkoutPick) return card.focusWorkoutPick;
+    return getAssignmentLabel(exMap[card.suit]) || "";
   };
   const showBack = !current || current.rank === "BACK";
   const preWorkoutOverlay = React.useMemo(() => {
     if (current) return null;
     const exercises = SUIT_KEYS.map((key, idx) => {
-      const name = (exMap[key] || "").trim();
+      const name = (getAssignmentLabel(exMap[key]) || "").trim();
       if (name) return name;
       return BASIC_FALLBACK_WORKOUTS[idx] || BASIC_FALLBACK_WORKOUTS[0];
     }).filter(Boolean);
@@ -548,7 +806,7 @@ export default function DeckOfCardsWorkout() {
     const suitDetails = SUIT_KEYS.map((key) => ({
       key,
       suit: SUIT_LABELS[key],
-      workout: exMap[key] || "",
+      workout: getAssignmentLabel(exMap[key]) || "",
       reps: workoutStats.suits[key] || 0,
     }));
     const totalReps = suitDetails.reduce((sum, item) => sum + item.reps, 0);
@@ -560,7 +818,7 @@ export default function DeckOfCardsWorkout() {
       totalReps,
       jokers: [...workoutStats.jokers],
     };
-    setWorkoutHistory((prev) => [entry, ...prev]);
+    setWorkoutHistory((prev) => [entry, ...prev].slice(0, MAX_HISTORY_ENTRIES));
     setWorkoutCompleted(true);
   }, [
     currentCardId,
@@ -600,13 +858,22 @@ export default function DeckOfCardsWorkout() {
     const trimmedWorkout = (entry.workout || "").trim();
     if (!trimmedWorkout) return;
 
+    const numericMultiplier =
+      type === "workouts" ? Number(entry.multiplier) || 1 : 1;
+    const formattedName =
+      type === "workouts"
+        ? formatWorkoutLabel(trimmedWorkout, numericMultiplier)
+        : trimmedWorkout;
     const newRow = {
       include: true,
-      workout: trimmedWorkout,
+      workout: formattedName,
       difficulty: Number(entry.difficulty) || 1,
       focus: entry.focus || "Full Body",
       weights: entry.weights || "No",
     };
+    if (type === "workouts") {
+      newRow.multiplier = numericMultiplier;
+    }
     setter((rows) => [...rows, newRow]);
     resetSetter({ ...DEFAULT_CUSTOM_ENTRY });
   };
@@ -646,26 +913,36 @@ export default function DeckOfCardsWorkout() {
         : fallbackWorkoutPool.length > 0
         ? fallbackWorkoutPool
         : WORKOUT_LIBRARY_DATA;
-    const suitKeys = Object.keys(EX_MAP);
+    const suitKeys = SUIT_KEYS;
     const uniqueWorkoutPool = [];
-    const usedWorkoutNames = new Set();
+    const usedLabels = new Set();
+    const addWorkoutLabel = (label) => {
+      const normalized = normalizeAssignmentValue(label || "");
+      if (!normalized || usedLabels.has(normalized)) return;
+      usedLabels.add(normalized);
+      uniqueWorkoutPool.push(normalized);
+    };
     finalWorkoutPool.forEach((row) => {
-      const name = (row.workout || "").trim();
-      if (!name || usedWorkoutNames.has(name)) return;
-      usedWorkoutNames.add(name);
-      uniqueWorkoutPool.push(row);
+      const base = (row.workout || "").trim();
+      if (!base) return;
+      const parsed = parseWorkoutWithMultiplier(base);
+      const multiplier = Number(row.multiplier) || parsed.multiplier || 1;
+      const label = formatWorkoutLabel(parsed.workout, multiplier);
+      addWorkoutLabel(label);
     });
+    if (randomSettings.includeFocus) {
+      FOCUS_PLACEHOLDER_OPTIONS.forEach((option) => {
+        addWorkoutLabel(option.label);
+      });
+    }
     if (uniqueWorkoutPool.length < suitKeys.length) {
       BASIC_FALLBACK_WORKOUTS.forEach((name) => {
         if (uniqueWorkoutPool.length >= suitKeys.length) return;
-        if (!usedWorkoutNames.has(name)) {
-          usedWorkoutNames.add(name);
-          uniqueWorkoutPool.push({ workout: name });
-        }
+        addWorkoutLabel(name);
       });
     }
     if (!uniqueWorkoutPool.length) {
-      uniqueWorkoutPool.push({ workout: "Wildcard Workout" });
+      addWorkoutLabel("Wildcard Workout");
     }
     const shuffledUniquePool = shuffleList(uniqueWorkoutPool);
     while (shuffledUniquePool.length < suitKeys.length) {
@@ -678,7 +955,11 @@ export default function DeckOfCardsWorkout() {
     const workoutOverride = {};
     suitKeys.forEach((key, idx) => {
       const pick = shuffledUniquePool[idx];
-      workoutOverride[key] = pick?.workout || EX_MAP[key];
+      const normalizedPick = normalizeAssignmentValue(
+        pick || EX_MAP[key] || ""
+      );
+      workoutOverride[key] =
+        normalizedPick || normalizeAssignmentValue(EX_MAP[key]);
     });
 
     const jokerPool = (jokerLibrary || []).filter((row) => {
@@ -695,7 +976,7 @@ export default function DeckOfCardsWorkout() {
       .map((row) => (row.workout || "").trim())
       .filter(Boolean);
 
-    setExMap(workoutOverride);
+    setExMap(normalizeSuitAssignments(workoutOverride));
     setRandomJokerList(
       jokerChoices.length ? jokerChoices : ["Wildcard (Joker Workout)"]
     );
@@ -719,10 +1000,15 @@ export default function DeckOfCardsWorkout() {
   };
 
   const handleRandomOptionChange = (field, value) => {
-    setRandomSettings((prev) => ({
-      ...prev,
-      [field]: field === "numJokers" ? Number(value) : value,
-    }));
+    setRandomSettings((prev) => {
+      if (field === "numJokers") {
+        return { ...prev, numJokers: clampJokerCount(Number(value)) };
+      }
+      if (field === "includeFocus") {
+        return { ...prev, includeFocus: value === "yes" };
+      }
+      return { ...prev, [field]: value };
+    });
   };
 
   const handleDeckSelectionChange = (deckId) => {
@@ -730,12 +1016,15 @@ export default function DeckOfCardsWorkout() {
   };
 
   const handleDeckSuitChange = (deckId, suitKey, value) => {
+    const normalizedValue = normalizeAssignmentValue(
+      typeof value === "string" ? value.trim() : ""
+    );
     setDeckPresets((prev) =>
       prev.map((deckPreset) =>
         deckPreset.id === deckId
           ? {
               ...deckPreset,
-              suits: { ...deckPreset.suits, [suitKey]: value },
+              suits: { ...deckPreset.suits, [suitKey]: normalizedValue },
             }
           : deckPreset
       )
@@ -768,9 +1057,15 @@ export default function DeckOfCardsWorkout() {
   };
 
   const updateCustomDeckSuit = (suitKey, value) => {
+    const normalizedValue = normalizeAssignmentValue(
+      typeof value === "string" ? value.trim() : ""
+    );
     setCustomDeckDraft((prev) => ({
       ...(prev || getCustomDeckTemplate()),
-      suits: { ...(prev?.suits || DEFAULT_EXERCISES), [suitKey]: value },
+      suits: {
+        ...(prev?.suits || normalizeSuitAssignments(EX_MAP)),
+        [suitKey]: normalizedValue,
+      },
     }));
   };
 
@@ -801,7 +1096,7 @@ export default function DeckOfCardsWorkout() {
     const newDeck = {
       id: slug,
       name: trimmedName,
-      suits: { ...(customDeckDraft.suits || DEFAULT_EXERCISES) },
+      suits: { ...(customDeckDraft.suits || normalizeSuitAssignments(EX_MAP)) },
       jokerSlots: normalizeJokerSlots(customDeckDraft.jokerSlots),
     };
     setDeckPresets((prev) => [...prev, newDeck]);
@@ -896,6 +1191,8 @@ export default function DeckOfCardsWorkout() {
               }
               onAddEntry={() => addCustomEntry("workouts")}
               addLabel="Add Workout"
+              showMultiplierSelect
+              multiplierOptions={WORKOUT_MULTIPLIER_OPTIONS}
             />
           )}
           {activeTab === "jokers" && (
@@ -973,7 +1270,7 @@ export default function DeckOfCardsWorkout() {
                       {SUIT_KEYS.map((key) => (
                         <div key={`summary-${key}`} className="flex flex-col">
                           <span className="text-sm font-semibold">
-                            {exMap[key] || "Workout"} -{" "}
+                            {getAssignmentLabel(exMap[key]) || "Workout"} -{" "}
                             {workoutStats.suits[key] || 0} reps
                           </span>
                         </div>
@@ -1047,6 +1344,25 @@ export default function DeckOfCardsWorkout() {
                       value={randomSettings.gymAccess}
                       onChange={(e) =>
                         handleRandomOptionChange("gymAccess", e.target.value)
+                      }
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span
+                      className="w-48 text-right font-semibold"
+                      style={{ color: "#ffffff" }}
+                    >
+                      Include "Focus" areas in random draw?
+                    </span>
+                    <select
+                      className="flex-1 min-w-[160px] border p-2 rounded bg-white text-black"
+                      value={randomSettings.includeFocus ? "yes" : "no"}
+                      onChange={(e) =>
+                        handleRandomOptionChange("includeFocus", e.target.value)
                       }
                     >
                       <option value="no">No</option>

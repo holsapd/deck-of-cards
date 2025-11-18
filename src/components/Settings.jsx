@@ -1,5 +1,9 @@
 // src/components/Settings.jsx
 import React from "react";
+import {
+  FOCUS_PLACEHOLDER_OPTIONS,
+  getAssignmentLabel,
+} from "../constants/libraryConfig";
 
 const SUITS = [
   { key: "\u2660", label: "Spades" },
@@ -12,6 +16,23 @@ const JOKER_SLOT_OPTIONS = [
   { value: "random", label: 'Random Draw from "Jokers" List' },
   { value: "none", label: "None" },
 ];
+
+const DEFAULT_SUIT_CHOICES = ["Lunges", "Squats", "Push-ups", "Sit-ups"].map(
+  (name) => ({ value: name, label: name })
+);
+
+const FALLBACK_SUIT_OPTIONS = [
+  ...FOCUS_PLACEHOLDER_OPTIONS,
+  ...DEFAULT_SUIT_CHOICES,
+];
+
+function ensureSuitOption(options, value) {
+  const trimmedValue = typeof value === "string" ? value.trim() : "";
+  if (!trimmedValue) return options;
+  if (options.some((opt) => opt.value === trimmedValue)) return options;
+  const label = getAssignmentLabel(trimmedValue) || trimmedValue;
+  return [{ value: trimmedValue, label }, ...options];
+}
 
 export default function Settings({
   deckSize,
@@ -39,7 +60,7 @@ export default function Settings({
   const suitOptions =
     Array.isArray(workoutOptions) && workoutOptions.length
       ? workoutOptions
-      : ["Lunges", "Squats", "Push-ups", "Sit-ups"];
+      : FALLBACK_SUIT_OPTIONS;
 
   const renderDeckSection = (deck) => (
     <div
@@ -62,10 +83,7 @@ export default function Settings({
       </div>
       {SUITS.map((suit) => {
         const currentValue = deck.suits?.[suit.key] || "";
-        const optionsForSuit =
-          currentValue && !suitOptions.includes(currentValue)
-            ? [currentValue, ...suitOptions]
-            : suitOptions;
+        const optionsForSuit = ensureSuitOption(suitOptions, currentValue);
         return (
           <div
             key={`${deck.id}-${suit.key}`}
@@ -80,8 +98,11 @@ export default function Settings({
               }
             >
               {optionsForSuit.map((opt) => (
-                <option key={`${deck.id}-${suit.key}-${opt}`} value={opt}>
-                  {opt}
+                <option
+                  key={`${deck.id}-${suit.key}-${opt.value}`}
+                  value={opt.value}
+                >
+                  {opt.label}
                 </option>
               ))}
             </select>
@@ -146,10 +167,7 @@ export default function Settings({
         </div>
         {SUITS.map((suit) => {
           const currentValue = customDeckDraft.suits?.[suit.key] || "";
-          const optionsForSuit =
-            currentValue && !suitOptions.includes(currentValue)
-              ? [currentValue, ...suitOptions]
-              : suitOptions;
+          const optionsForSuit = ensureSuitOption(suitOptions, currentValue);
           return (
             <div key={`custom-${suit.key}`} className="flex items-center gap-2">
               <span className="w-24 text-right text-white/80">
@@ -163,8 +181,11 @@ export default function Settings({
                 }
               >
                 {optionsForSuit.map((opt) => (
-                  <option key={`custom-${suit.key}-${opt}`} value={opt}>
-                    {opt}
+                  <option
+                    key={`custom-${suit.key}-${opt.value}`}
+                    value={opt.value}
+                  >
+                    {opt.label}
                   </option>
                 ))}
               </select>

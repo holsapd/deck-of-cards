@@ -5,6 +5,7 @@ import {
   LEVEL_OPTIONS,
   FOCUS_OPTIONS,
   WEIGHT_OPTIONS,
+  WORKOUT_MULTIPLIER_OPTIONS,
 } from "../constants/libraryConfig";
 
 export default function LibraryTable({
@@ -14,6 +15,8 @@ export default function LibraryTable({
   onNewEntryChange,
   onAddEntry,
   addLabel,
+  showMultiplierSelect = false,
+  multiplierOptions = WORKOUT_MULTIPLIER_OPTIONS,
 }) {
   const groupedByLevel = React.useMemo(() => {
     const groups = {
@@ -182,6 +185,29 @@ export default function LibraryTable({
               onChange={(e) => onNewEntryChange("workout", e.target.value)}
             />
           </div>
+          {showMultiplierSelect && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span
+                className="text-xs uppercase tracking-wide"
+                style={{ color: "#ffffff", width: 140, textAlign: "right" }}
+              >
+                Multiplier
+              </span>
+              <select
+                className="flex-1 min-w-[140px] px-3 py-2 rounded bg-white/90 text-black text-sm"
+                value={Number(newEntry.multiplier) || 1}
+                onChange={(e) =>
+                  onNewEntryChange("multiplier", Number(e.target.value) || 1)
+                }
+              >
+                {multiplierOptions.map((value) => (
+                  <option key={`new-mult-${value}`} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex items-center gap-3 flex-wrap">
             <span
               className="text-xs uppercase tracking-wide"
