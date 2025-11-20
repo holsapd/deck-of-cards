@@ -23,8 +23,10 @@ const APP_TABS = [
   { key: "workouts", label: "Workouts" },
   { key: "jokers", label: "Jokers" },
   { key: "history", label: "History" },
-  { key: "settings", label: "Settings" },
+  { key: "settings", label: "Settings/ My Decks" },
 ];
+// Adjust this to change the tab text size globally
+const TAB_FONT_SIZE_PX = 16;
 
 function mergeLibrary(defaultRows, savedRows) {
   if (!Array.isArray(savedRows)) return defaultRows;
@@ -71,10 +73,10 @@ const SUIT_LABELS = {
 };
 
 const BASE_WORKOUT_MAP = Object.freeze({
-  "\u2660": "Lunges",
-  "\u2665": "Squats",
-  "\u2666": "Push-ups",
-  "\u2663": "Sit-ups",
+  "\u2660": "Push-ups",
+  "\u2665": "Sit-ups",
+  "\u2666": "Squats (2x)",
+  "\u2663": "Pullups",
   JOKER: "2 min plank hold",
 });
 
@@ -116,6 +118,10 @@ function parseWorkoutWithMultiplier(value) {
   };
 }
 
+function clampDifficulty(value) {
+  return Math.min(3, Math.max(1, Number(value) || 1));
+}
+
 function sanitizeWorkoutRows(rows) {
   return (rows || []).map((row) => {
     const parsed = parseWorkoutWithMultiplier(row.workout);
@@ -128,8 +134,44 @@ function sanitizeWorkoutRows(rows) {
       ...row,
       workout: formatted,
       multiplier: finalMultiplier,
+      difficulty: clampDifficulty(row.difficulty),
     };
   });
+}
+
+function getWorkoutSortKey(row) {
+  const parsed = parseWorkoutWithMultiplier(row.workout);
+  const base = parsed.workout || row.workout || "";
+  return base.trim().toLowerCase();
+}
+
+function sortRowsByLevel(rows) {
+  const list = [...(rows || [])];
+  return list.sort((a, b) => {
+    const diff = clampDifficulty(a.difficulty) - clampDifficulty(b.difficulty);
+    if (diff !== 0) return diff;
+    return getWorkoutSortKey(a).localeCompare(getWorkoutSortKey(b), undefined, {
+      sensitivity: "base",
+    });
+  });
+}
+
+function normalizeJokerRow(row) {
+  if (!row) return null;
+  const trimmedWorkout = (row.workout || "").trim();
+  if (!trimmedWorkout) return null;
+  return {
+    ...row,
+    workout: trimmedWorkout,
+    focus: row.focus || "Full Body",
+    weights: row.weights || "No",
+    difficulty: clampDifficulty(row.difficulty),
+    include: !!row.include,
+  };
+}
+
+function normalizeJokerRows(rows) {
+  return (rows || []).map((row) => normalizeJokerRow(row)).filter(Boolean);
 }
 
 function getWorkoutMetaFromAssignment(value) {
@@ -145,7 +187,7 @@ function createInitialStats() {
   SUIT_KEYS.forEach((key) => {
     suits[key] = 0;
   });
-  return { suits, jokers: [] };
+  return { suits, jokers: [], performedWorkouts: [] };
 }
 
 const DEFAULT_JOKER_SLOTS = { 1: "random", 2: "none" };
@@ -191,7 +233,7 @@ const DEFAULT_DECK_PRESETS = [
     id: "standard",
     name: "Standard Deck",
     suits: { ...EX_MAP },
-    jokerSlots: { 1: "random", 2: "none" },
+    jokerSlots: { 1: "random", 2: "random" },
   },
   {
     id: "crush-core",
@@ -301,13 +343,13 @@ function getCustomDeckTemplate() {
 
 function getDefaultRandomSettings() {
   return {
-    levels: { 1: true, 2: false, 3: false },
+    levels: { 1: true, 2: true, 3: false },
     gymAccess: "no",
     deckSize: "full",
     aceHigh: false,
     faceCardMode: "progressive",
-    numJokers: 1,
-    includeFocus: false,
+    numJokers: 2,
+    includeFocus: true,
   };
 }
 
@@ -323,7 +365,8 @@ function mergeRandomSettings(stored) {
     });
   }
   const normalizedDeckSize =
-    typeof stored.deckSize === "string" && DECK_SIZE_LIMITS[stored.deckSize] !== undefined
+    typeof stored.deckSize === "string" &&
+    DECK_SIZE_LIMITS[stored.deckSize] !== undefined
       ? stored.deckSize
       : defaults.deckSize;
   const normalizedFaceCardMode =
@@ -340,7 +383,8 @@ function mergeRandomSettings(stored) {
     levels: mergedLevels,
     gymAccess: normalizedGymAccess,
     deckSize: normalizedDeckSize,
-    aceHigh: typeof stored.aceHigh === "boolean" ? stored.aceHigh : defaults.aceHigh,
+    aceHigh:
+      typeof stored.aceHigh === "boolean" ? stored.aceHigh : defaults.aceHigh,
     faceCardMode: normalizedFaceCardMode,
     numJokers: clampJokerCount(stored.numJokers),
     includeFocus:
@@ -351,22 +395,33 @@ function mergeRandomSettings(stored) {
 }
 
 export default function DeckOfCardsWorkout() {
-  const initialDeck = React.useMemo(() => makeDeckV2(1, "full"), []);
+  const defaultStandardPreset = DEFAULT_DECK_PRESETS[0];
+  const initialJokerSlots =
+    (defaultStandardPreset && defaultStandardPreset.jokerSlots) ||
+    DEFAULT_JOKER_SLOTS;
+  const initialNumJokers = countActiveJokers(initialJokerSlots) || 1;
+  const initialDeck = React.useMemo(
+    () => makeDeckV2(initialNumJokers, "full"),
+    [initialNumJokers]
+  );
   const [deckPresets, setDeckPresets] = useState(getDefaultDeckPresets());
   const [selectedDeckId, setSelectedDeckId] = useState("standard");
   const [customDeckDraft, setCustomDeckDraft] = useState(null);
-  const [numJokers, setNumJokers] = useState(1);
-  const [jokerSlots, setJokerSlots] = useState({ ...DEFAULT_JOKER_SLOTS });
+  const [numJokers, setNumJokers] = useState(initialNumJokers);
+  const [jokerSlots, setJokerSlots] = useState({ ...initialJokerSlots });
   const [deckSize, setDeckSize] = useState("full");
   const [deck, setDeck] = useState(initialDeck);
   const [totalCards, setTotalCards] = useState(initialDeck.length);
+  const [drawHistory, setDrawHistory] = useState([]);
   const [current, setCurrent] = useState(null);
   const [flipped, setFlipped] = useState(false);
   const [exMap, setExMap] = useState(() => normalizeSuitAssignments(EX_MAP));
   const [workoutLibrary, setWorkoutLibrary] = useState(() =>
-    sanitizeWorkoutRows(WORKOUT_LIBRARY_DATA)
+    sortRowsByLevel(sanitizeWorkoutRows(WORKOUT_LIBRARY_DATA))
   );
-  const [jokerLibrary, setJokerLibrary] = useState(JOKER_LIBRARY_DATA);
+  const [jokerLibrary, setJokerLibrary] = useState(() =>
+    sortRowsByLevel(normalizeJokerRows(JOKER_LIBRARY_DATA))
+  );
   const [newWorkoutEntry, setNewWorkoutEntry] = useState({
     ...DEFAULT_CUSTOM_ENTRY,
   });
@@ -386,6 +441,10 @@ export default function DeckOfCardsWorkout() {
   const [currentWorkoutName, setCurrentWorkoutName] = useState("Standard Deck");
   const [workoutCompleted, setWorkoutCompleted] = useState(false);
   const [keepScreenAwake, setKeepScreenAwake] = useState(false);
+  const [isEditingWorkouts, setIsEditingWorkouts] = useState(false);
+  const [editableWorkoutRows, setEditableWorkoutRows] = useState(null);
+  const [isEditingJokers, setIsEditingJokers] = useState(false);
+  const [editableJokerRows, setEditableJokerRows] = useState(null);
   const wakeLockRef = React.useRef(null);
   const persistQueueRef = React.useRef({});
   const persistTimerRef = React.useRef(null);
@@ -592,12 +651,20 @@ export default function DeckOfCardsWorkout() {
         setDeckSize(source.deckSize);
       if (Array.isArray(source.workoutLibrary))
         setWorkoutLibrary(
-          sanitizeWorkoutRows(
-            mergeLibrary(WORKOUT_LIBRARY_DATA, source.workoutLibrary)
+          sortRowsByLevel(
+            sanitizeWorkoutRows(
+              mergeLibrary(WORKOUT_LIBRARY_DATA, source.workoutLibrary)
+            )
           )
         );
       if (Array.isArray(source.jokerLibrary))
-        setJokerLibrary(mergeLibrary(JOKER_LIBRARY_DATA, source.jokerLibrary));
+        setJokerLibrary(
+          sortRowsByLevel(
+            normalizeJokerRows(
+              mergeLibrary(JOKER_LIBRARY_DATA, source.jokerLibrary)
+            )
+          )
+        );
       if (typeof source.aceHigh === "boolean") setAceHigh(source.aceHigh);
       if (
         typeof source.faceCardMode === "string" &&
@@ -685,6 +752,7 @@ export default function DeckOfCardsWorkout() {
       setFlipped(false);
       setHasStarted(false);
       setWorkoutStats(createInitialStats());
+      setDrawHistory([]);
       setWorkoutCompleted(false);
     },
     [numJokers, deckSize]
@@ -700,20 +768,26 @@ export default function DeckOfCardsWorkout() {
       return;
     }
     const next = { ...deck[0] };
+    let delta = null;
     if (next.rank === "Joker") {
-      const choices = availableJokerWorkouts;
-      const picked = choices.length
-        ? choices[Math.floor(Math.random() * choices.length)]
-        : "Wildcard (Joker Workout)";
+      let picked = next.jokerWorkoutPick;
+      if (!picked) {
+        const choices = availableJokerWorkouts;
+        picked = choices.length
+          ? choices[Math.floor(Math.random() * choices.length)]
+          : "Wildcard (Joker Workout)";
+      }
       next.jokerWorkoutPick = picked;
+      delta = { type: "joker", jokerWorkout: picked };
       setWorkoutStats((prev) => ({
         suits: { ...prev.suits },
         jokers: [...prev.jokers, picked],
+        performedWorkouts: [...(prev.performedWorkouts || [])],
       }));
     } else {
       const assignedValue = exMap[next.suit];
       const focusName = getFocusKeyFromValue(assignedValue);
-      if (focusName) {
+      if (!next.focusWorkoutPick && focusName) {
         const pick = getRandomWorkoutForFocus(focusName);
         if (pick) {
           next.focusWorkoutPick = pick;
@@ -722,15 +796,67 @@ export default function DeckOfCardsWorkout() {
         }
       }
       const repsValue = repsFor(next);
+      const resolvedWorkoutLabel =
+        (next.focusWorkoutPick ||
+          getAssignmentLabel(exMap[next.suit]) ||
+          "Workout") + "";
+      const normalizedLabel = resolvedWorkoutLabel.trim() || "Workout";
+      delta = {
+        type: "suit",
+        suit: next.suit,
+        reps: repsValue,
+        workoutLabel: normalizedLabel,
+      };
       setWorkoutStats((prev) => {
         const suits = { ...prev.suits };
         suits[next.suit] = (suits[next.suit] || 0) + repsValue;
-        return { suits, jokers: prev.jokers };
+        const performedWorkouts = [
+          ...(prev.performedWorkouts || []),
+          {
+            workout: normalizedLabel,
+            reps: repsValue,
+          },
+        ];
+        return {
+          suits,
+          jokers: prev.jokers,
+          performedWorkouts,
+        };
       });
     }
     setDeck((d) => d.slice(1));
     setCurrent(next);
+    if (delta) {
+      setDrawHistory((history) => [...history, { card: next, delta }]);
+    }
   }
+
+  const revertStatsForEntry = React.useCallback((historyEntry) => {
+    if (!historyEntry) return;
+    setWorkoutStats((prev) => {
+      const suits = { ...prev.suits };
+      const jokers = [...(prev.jokers || [])];
+      let performedWorkouts = [...(prev.performedWorkouts || [])];
+      if (historyEntry.delta?.type === "joker") {
+        jokers.pop();
+      } else if (historyEntry.delta?.type === "suit") {
+        if (historyEntry.delta.suit) {
+          const updatedValue =
+            (suits[historyEntry.delta.suit] || 0) -
+            (historyEntry.delta.reps || 0);
+          suits[historyEntry.delta.suit] = updatedValue > 0 ? updatedValue : 0;
+        }
+        if (performedWorkouts.length) {
+          performedWorkouts = performedWorkouts.slice(0, -1);
+        }
+      }
+      return {
+        suits,
+        jokers,
+        performedWorkouts,
+      };
+    });
+  }, []);
 
   function handleCardClick() {
     setHasStarted(true);
@@ -740,6 +866,18 @@ export default function DeckOfCardsWorkout() {
       drawCard();
     }, 200);
   }
+
+  const handlePreviousCard = () => {
+    if (flipped || !current || current.id === "end") return;
+    if (!drawHistory || drawHistory.length < 2) return;
+    const lastEntry = drawHistory[drawHistory.length - 1];
+    const newHistory = drawHistory.slice(0, -1);
+    const previousEntry = newHistory[newHistory.length - 1] || null;
+    revertStatsForEntry(lastEntry);
+    setDeck((prevDeck) => [lastEntry.card, ...prevDeck]);
+    setCurrent(previousEntry ? previousEntry.card : null);
+    setDrawHistory(newHistory);
+  };
 
   const getCardMultiplier = (card) => {
     if (!card || card.rank === "Joker" || card.rank === "BACK") return 1;
@@ -796,6 +934,8 @@ export default function DeckOfCardsWorkout() {
     Math.max(0, totalCards - deck.length)
   );
   const currentCardId = current?.id;
+  const canGoToPreviousCard =
+    drawHistory.length >= 2 && current && currentCardId !== "end";
   const totalRepsCompleted = SUIT_KEYS.reduce(
     (sum, key) => sum + (workoutStats.suits[key] || 0),
     0
@@ -810,13 +950,25 @@ export default function DeckOfCardsWorkout() {
       reps: workoutStats.suits[key] || 0,
     }));
     const totalReps = suitDetails.reduce((sum, item) => sum + item.reps, 0);
+    const entryId = Date.now();
+    const performedWorkouts = (workoutStats.performedWorkouts || []).map(
+      (item, index) => ({
+        id: `${entryId}-${index}`,
+        workout: item.workout,
+        reps: item.reps,
+      })
+    );
+    const cardsCompleted =
+      performedWorkouts.length + workoutStats.jokers.length;
     const entry = {
-      id: Date.now(),
+      id: entryId,
       completedAt: new Date().toISOString(),
       workoutName: currentWorkoutName || "Custom Deck",
       suits: suitDetails,
       totalReps,
       jokers: [...workoutStats.jokers],
+      performedWorkouts,
+      cardsCompleted,
     };
     setWorkoutHistory((prev) => [entry, ...prev].slice(0, MAX_HISTORY_ENTRIES));
     setWorkoutCompleted(true);
@@ -851,7 +1003,6 @@ export default function DeckOfCardsWorkout() {
 
   const addCustomEntry = (type) => {
     const entry = type === "workouts" ? newWorkoutEntry : newJokerEntry;
-    const setter = type === "workouts" ? setWorkoutLibrary : setJokerLibrary;
     const resetSetter =
       type === "workouts" ? setNewWorkoutEntry : setNewJokerEntry;
 
@@ -860,22 +1011,162 @@ export default function DeckOfCardsWorkout() {
 
     const numericMultiplier =
       type === "workouts" ? Number(entry.multiplier) || 1 : 1;
-    const formattedName =
-      type === "workouts"
-        ? formatWorkoutLabel(trimmedWorkout, numericMultiplier)
-        : trimmedWorkout;
-    const newRow = {
-      include: true,
-      workout: formattedName,
-      difficulty: Number(entry.difficulty) || 1,
-      focus: entry.focus || "Full Body",
-      weights: entry.weights || "No",
-    };
+    const difficultyValue = clampDifficulty(entry.difficulty);
+
     if (type === "workouts") {
-      newRow.multiplier = numericMultiplier;
+      const editableRow = {
+        include: true,
+        workout: trimmedWorkout,
+        difficulty: difficultyValue,
+        focus: entry.focus || "Full Body",
+        weights: entry.weights || "No",
+        multiplier: numericMultiplier,
+      };
+      if (isEditingWorkouts) {
+        setEditableWorkoutRows((rows) =>
+          sortRowsByLevel([...(rows || []), editableRow])
+        );
+      } else {
+        const formattedRow = {
+          ...editableRow,
+          workout: formatWorkoutLabel(trimmedWorkout, numericMultiplier),
+        };
+        setWorkoutLibrary((rows) =>
+          sortRowsByLevel([...(rows || []), formattedRow])
+        );
+      }
+    } else {
+      const newRow = normalizeJokerRow({
+        include: true,
+        workout: trimmedWorkout,
+        difficulty: difficultyValue,
+        focus: entry.focus || "Full Body",
+        weights: entry.weights || "No",
+      });
+      if (!newRow) return;
+      if (isEditingJokers) {
+        setEditableJokerRows((rows) =>
+          sortRowsByLevel([...(rows || []), newRow])
+        );
+      } else {
+        setJokerLibrary((rows) => sortRowsByLevel([...(rows || []), newRow]));
+      }
     }
-    setter((rows) => [...rows, newRow]);
     resetSetter({ ...DEFAULT_CUSTOM_ENTRY });
+  };
+
+  const startEditingWorkoutLibrary = () => {
+    if (isEditingWorkouts) return;
+    const snapshot = sortRowsByLevel(
+      (workoutLibrary || []).map((row) => {
+        const parsed = parseWorkoutWithMultiplier(row.workout);
+        return {
+          ...row,
+          workout: parsed.workout,
+          multiplier: row.multiplier || parsed.multiplier || 1,
+          difficulty: clampDifficulty(row.difficulty),
+        };
+      })
+    );
+    setEditableWorkoutRows(snapshot);
+    setIsEditingWorkouts(true);
+  };
+
+  const cancelWorkoutLibraryEdits = () => {
+    setEditableWorkoutRows(null);
+    setIsEditingWorkouts(false);
+  };
+
+  const handleEditWorkoutChange = (index, field, value) => {
+    setEditableWorkoutRows((rows) => {
+      if (!Array.isArray(rows)) return rows;
+      return rows.map((row, idx) => {
+        if (idx !== index) return row;
+        if (field === "difficulty") {
+          return { ...row, difficulty: clampDifficulty(value) };
+        }
+        if (field === "multiplier") {
+          return { ...row, multiplier: Number(value) || 1 };
+        }
+        if (field === "include") {
+          return { ...row, include: !!value };
+        }
+        return { ...row, [field]: value };
+      });
+    });
+  };
+
+  const handleDeleteEditableWorkout = (index) => {
+    setEditableWorkoutRows((rows) => {
+      if (!Array.isArray(rows)) return rows;
+      return rows.filter((_, idx) => idx !== index);
+    });
+  };
+
+  const handleSaveWorkoutEdits = () => {
+    if (!isEditingWorkouts || !Array.isArray(editableWorkoutRows)) return;
+    const cleaned = editableWorkoutRows
+      .map((row) => {
+        const trimmedName = (row.workout || "").trim();
+        if (!trimmedName) return null;
+        return {
+          ...row,
+          workout: trimmedName,
+          focus: row.focus || "Full Body",
+          weights: row.weights || "No",
+          difficulty: clampDifficulty(row.difficulty),
+          multiplier: Number(row.multiplier) || 1,
+          include: !!row.include,
+        };
+      })
+      .filter(Boolean);
+    const sanitized = sortRowsByLevel(sanitizeWorkoutRows(cleaned));
+    setWorkoutLibrary(sanitized);
+    setEditableWorkoutRows(null);
+    setIsEditingWorkouts(false);
+  };
+
+  const startEditingJokerLibrary = () => {
+    if (isEditingJokers) return;
+    const snapshot = sortRowsByLevel(normalizeJokerRows(jokerLibrary));
+    setEditableJokerRows(snapshot);
+    setIsEditingJokers(true);
+  };
+
+  const cancelJokerLibraryEdits = () => {
+    setEditableJokerRows(null);
+    setIsEditingJokers(false);
+  };
+
+  const handleEditJokerChange = (index, field, value) => {
+    setEditableJokerRows((rows) => {
+      if (!Array.isArray(rows)) return rows;
+      return rows.map((row, idx) => {
+        if (idx !== index) return row;
+        if (field === "difficulty") {
+          return { ...row, difficulty: clampDifficulty(value) };
+        }
+        if (field === "include") {
+          return { ...row, include: !!value };
+        }
+        return { ...row, [field]: value };
+      });
+    });
+  };
+
+  const handleDeleteEditableJoker = (index) => {
+    setEditableJokerRows((rows) => {
+      if (!Array.isArray(rows)) return rows;
+      return rows.filter((_, idx) => idx !== index);
+    });
+  };
+
+  const handleSaveJokerEdits = () => {
+    if (!isEditingJokers || !Array.isArray(editableJokerRows)) return;
+    const normalized = sortRowsByLevel(normalizeJokerRows(editableJokerRows));
+    setJokerLibrary(normalized);
+    setEditableJokerRows(null);
+    setIsEditingJokers(false);
   };
 
   const shuffleList = (list) => {
@@ -1108,9 +1399,55 @@ export default function DeckOfCardsWorkout() {
     value: deckPreset.id,
     label: deckPreset.name,
   }));
+  const [isScrolledToTop, setIsScrolledToTop] = useState(true);
+  const disableScrollDuringWorkout = activeTab === "workout" && hasStarted;
+  const shouldLockScroll = disableScrollDuringWorkout && isScrolledToTop;
+
+  React.useEffect(() => {
+    if (!disableScrollDuringWorkout) {
+      setIsScrolledToTop(true);
+      return;
+    }
+    const handleScroll = () => {
+      const y = typeof window !== "undefined" ? window.scrollY || 0 : 0;
+      setIsScrolledToTop(y <= 0);
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [disableScrollDuringWorkout]);
+
+  React.useEffect(() => {
+    if (shouldLockScroll && typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, [shouldLockScroll]);
+
+  // Lock body scroll during active workouts to avoid stray page scrolling
+  React.useEffect(() => {
+    if (shouldLockScroll && typeof document !== "undefined") {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow =
+        typeof document !== "undefined"
+          ? document.documentElement.style.overflow
+          : "";
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
+      };
+    }
+    return undefined;
+  }, [disableScrollDuringWorkout]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start bg-gray-900 text-white p-4">
+    <div
+      className={`min-h-screen flex flex-col items-center justify-start bg-gray-900 text-white p-4 ${
+        shouldLockScroll ? "overflow-hidden" : ""
+      }`}
+      style={shouldLockScroll ? { overflowY: "hidden" } : {}}
+    >
       <div className="w-full max-w-3xl flex flex-col items-center gap-6">
         <div className="w-full flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -1125,7 +1462,7 @@ export default function DeckOfCardsWorkout() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex-1 px-5 py-2 rounded-full border font-semibold tracking-wide text-sm transition-all ${
+                  className={`flex-1 px-5 py-2 rounded-full border font-semibold tracking-wide transition-all ${
                     activeTab === tab.key ? "shadow-lg" : "hover:opacity-90"
                   }`}
                   style={
@@ -1134,11 +1471,13 @@ export default function DeckOfCardsWorkout() {
                           backgroundColor: "#1d3a8a",
                           borderColor: "#ffffff",
                           color: "#ffffff",
+                          fontSize: `${TAB_FONT_SIZE_PX}px`,
                         }
                       : {
                           backgroundColor: "#0b1f49",
                           borderColor: "rgba(255,255,255,0.6)",
                           color: "#ffffff",
+                          fontSize: `${TAB_FONT_SIZE_PX}px`,
                         }
                   }
                 >
@@ -1182,30 +1521,98 @@ export default function DeckOfCardsWorkout() {
           )}
 
           {activeTab === "workouts" && (
-            <LibraryTable
-              rows={workoutLibrary}
-              onToggleInclude={(idx) => toggleIncludeRow("workouts", idx)}
-              newEntry={newWorkoutEntry}
-              onNewEntryChange={(field, value) =>
-                handleNewEntryChange("workouts", field, value)
-              }
-              onAddEntry={() => addCustomEntry("workouts")}
-              addLabel="Add Workout"
-              showMultiplierSelect
-              multiplierOptions={WORKOUT_MULTIPLIER_OPTIONS}
-            />
+            <>
+              <LibraryTable
+                rows={workoutLibrary}
+                onToggleInclude={(idx) => toggleIncludeRow("workouts", idx)}
+                newEntry={newWorkoutEntry}
+                onNewEntryChange={(field, value) =>
+                  handleNewEntryChange("workouts", field, value)
+                }
+                onAddEntry={() => addCustomEntry("workouts")}
+                addLabel="Add Workout"
+                showMultiplierSelect
+                multiplierOptions={WORKOUT_MULTIPLIER_OPTIONS}
+                isEditing={isEditingWorkouts}
+                editRows={editableWorkoutRows}
+                onEditRowChange={handleEditWorkoutChange}
+                onDeleteRow={handleDeleteEditableWorkout}
+              />
+              <div className="w-full flex flex-wrap justify-end gap-3 mt-4">
+                {isEditingWorkouts ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={cancelWorkoutLibraryEdits}
+                      className="px-5 py-2 rounded-lg border border-white/40 text-white font-semibold text-sm hover:bg-white/10"
+                    >
+                      Cancel Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveWorkoutEdits}
+                      className="px-5 py-2 rounded-lg bg-green-600 text-white font-semibold text-sm hover:bg-green-500"
+                    >
+                      Save Changes
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startEditingWorkoutLibrary}
+                    className="px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-500"
+                  >
+                    Edit Workouts
+                  </button>
+                )}
+              </div>
+            </>
           )}
           {activeTab === "jokers" && (
-            <LibraryTable
-              rows={jokerLibrary}
-              onToggleInclude={(idx) => toggleIncludeRow("jokers", idx)}
-              newEntry={newJokerEntry}
-              onNewEntryChange={(field, value) =>
-                handleNewEntryChange("jokers", field, value)
-              }
-              onAddEntry={() => addCustomEntry("jokers")}
-              addLabel="Add Joker Workout"
-            />
+            <>
+              <LibraryTable
+                rows={jokerLibrary}
+                onToggleInclude={(idx) => toggleIncludeRow("jokers", idx)}
+                newEntry={newJokerEntry}
+                onNewEntryChange={(field, value) =>
+                  handleNewEntryChange("jokers", field, value)
+                }
+                onAddEntry={() => addCustomEntry("jokers")}
+                addLabel="Add Joker Workout"
+                isEditing={isEditingJokers}
+                editRows={editableJokerRows}
+                onEditRowChange={handleEditJokerChange}
+                onDeleteRow={handleDeleteEditableJoker}
+              />
+              <div className="w-full flex flex-wrap justify-end gap-3 mt-4">
+                {isEditingJokers ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={cancelJokerLibraryEdits}
+                      className="px-5 py-2 rounded-lg border border-white/40 text-white font-semibold text-sm hover:bg-white/10"
+                    >
+                      Cancel Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveJokerEdits}
+                      className="px-5 py-2 rounded-lg bg-green-600 text-white font-semibold text-sm hover:bg-green-500"
+                    >
+                      Save Changes
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startEditingJokerLibrary}
+                    className="px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-500"
+                  >
+                    Edit Jokers
+                  </button>
+                )}
+              </div>
+            </>
           )}
 
           {activeTab === "history" && <History entries={workoutHistory} />}
@@ -1214,7 +1621,7 @@ export default function DeckOfCardsWorkout() {
             <>
               {!hasStarted && (
                 <p
-                  className="mb-4 text-center text-sm"
+                  className="mb-4 text-center text-base"
                   style={{ color: "#ffffff" }}
                 >
                   Tap the card to start your selected deck or randomize a
@@ -1259,6 +1666,25 @@ export default function DeckOfCardsWorkout() {
                   isFlipped={!!current}
                 />
               </div>
+
+              <button
+                type="button"
+                onClick={handlePreviousCard}
+                disabled={!canGoToPreviousCard}
+                className="mt-3 self-start px-4 py-2 rounded-lg border border-white/30 bg-white/10 text-white text-sm font-semibold hover:bg-white/20 disabled:cursor-not-allowed inline-flex"
+                style={{
+                  opacity: canGoToPreviousCard ? 1 : 0,
+                  backgroundColor: canGoToPreviousCard
+                    ? "rgba(255,255,255,0.1)"
+                    : "transparent",
+                  color: canGoToPreviousCard ? "#ffffff" : "transparent",
+                  borderColor: canGoToPreviousCard
+                    ? "rgba(255,255,255,0.3)"
+                    : "transparent",
+                }}
+              >
+                Previous Card
+              </button>
 
               {isEndOfDeck && (
                 <>

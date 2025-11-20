@@ -11,6 +11,24 @@ export const COLUMN_STYLES = {
   workout: { width: "55%", minWidth: "200px" },
   focus: { width: "80px", minWidth: "70px" },
   weights: { width: "80px", minWidth: "70px", textAlign: "center" },
+  level: {
+    width: "auto",
+    minWidth: 0,
+    textAlign: "center",
+    whiteSpace: "nowrap",
+  },
+  multiplier: {
+    width: "auto",
+    minWidth: 0,
+    textAlign: "center",
+    whiteSpace: "nowrap",
+  },
+  actions: {
+    width: "auto",
+    minWidth: 0,
+    textAlign: "center",
+    whiteSpace: "nowrap",
+  },
 };
 
 export const LEVEL_OPTIONS = [
@@ -110,11 +128,12 @@ export const WORKOUT_LIBRARY_DATA = [
     weights: "No",
   },
   {
-    include: true,
+    include: false,
     workout: "Jumping Jacks",
     difficulty: 1,
     focus: "Full Body",
     weights: "No",
+    multiplier: 2,
   },
   {
     include: true,
@@ -145,11 +164,19 @@ export const WORKOUT_LIBRARY_DATA = [
     weights: "No",
   },
   {
-    include: true,
+    include: false,
     workout: "Squats",
     difficulty: 1,
     focus: "Lower Body",
     weights: "No",
+  },
+  {
+    include: false,
+    workout: "Jump Rope",
+    difficulty: 1,
+    focus: "Full Body",
+    weights: "Yes",
+    multiplier: 3,
   },
   {
     include: false,
@@ -159,7 +186,7 @@ export const WORKOUT_LIBRARY_DATA = [
     weights: "No",
   },
   {
-    include: false,
+    include: true,
     workout: "Kettle Bell Swings",
     difficulty: 2,
     focus: "Full Body",
@@ -180,14 +207,14 @@ export const WORKOUT_LIBRARY_DATA = [
     weights: "No",
   },
   {
-    include: false,
+    include: true,
     workout: "Weighted Lunges",
     difficulty: 2,
     focus: "Lower Body",
     weights: "Yes",
   },
   {
-    include: false,
+    include: true,
     workout: "Squats (2x)",
     difficulty: 2,
     focus: "Lower Body",
@@ -245,8 +272,8 @@ export const WORKOUT_LIBRARY_DATA = [
     weights: "No",
   },
   {
-    include: false,
-    workout: "Pullups",
+    include: true,
+    workout: "Pull-ups",
     difficulty: 3,
     focus: "Upper Body",
     weights: "Yes",
@@ -278,7 +305,7 @@ export const JOKER_LIBRARY_DATA = [
   {
     include: true,
     workout: "10 Close Grip Push-ups",
-    difficulty: 1,
+    difficulty: 2,
     focus: "Upper Body",
     weights: "No",
   },
@@ -290,7 +317,7 @@ export const JOKER_LIBRARY_DATA = [
     weights: "No",
   },
   {
-    include: false,
+    include: true,
     workout: "2 min Rest",
     difficulty: 1,
     focus: "Full Body",
@@ -347,35 +374,35 @@ export const JOKER_LIBRARY_DATA = [
   },
   {
     include: false,
-    workout: "1 mi run",
+    workout: "1 mi Run",
     difficulty: 3,
     focus: "Full Body",
     weights: "No",
   },
   {
     include: true,
-    workout: "20 burpees",
+    workout: "20 Burpees",
     difficulty: 3,
     focus: "Full Body",
     weights: "No",
   },
   {
     include: false,
-    workout: "3 min farmer carry",
+    workout: "3 min Farmer Carry",
     difficulty: 3,
     focus: "Full Body",
     weights: "Yes",
   },
   {
     include: true,
-    workout: "3 min plank hold",
+    workout: "3 min Plank Hold",
     difficulty: 3,
     focus: "Full Body",
     weights: "No",
   },
   {
     include: true,
-    workout: "Side planks (90s each side)",
+    workout: "Side Planks (90s each side)",
     difficulty: 3,
     focus: "Full Body",
     weights: "No",

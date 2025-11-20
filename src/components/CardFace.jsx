@@ -25,6 +25,91 @@ const cardFrameStyle = {
   zIndex: 10,
 };
 
+function AutoFitText({
+  children,
+  baseSize = 40,
+  minSize = 16,
+  className = "",
+  style = {},
+}) {
+  const textRef = React.useRef(null);
+  const [fontSize, setFontSize] = React.useState(baseSize);
+
+  React.useLayoutEffect(() => {
+    const element = textRef.current;
+    if (!element) return;
+
+    const measure = () => {
+      const el = textRef.current;
+      if (!el) return;
+      // Use the actual content box width so padding on the parent doesn't cause us to over-estimate space
+      const parent = el.parentElement;
+      let availableWidth = el.clientWidth || 0;
+      if (parent) {
+        const style =
+          typeof window !== "undefined" && parent instanceof HTMLElement
+            ? window.getComputedStyle(parent)
+            : null;
+        const paddingLeft = style ? parseFloat(style.paddingLeft) || 0 : 0;
+        const paddingRight = style ? parseFloat(style.paddingRight) || 0 : 0;
+        const parentContentWidth =
+          (parent.clientWidth || 0) - (paddingLeft + paddingRight);
+        availableWidth = Math.max(availableWidth, parentContentWidth);
+      }
+      if (!availableWidth) return;
+      const prevFontSize = el.style.fontSize;
+      const prevWhiteSpace = el.style.whiteSpace;
+      el.style.fontSize = `${baseSize}px`;
+      el.style.whiteSpace = "nowrap";
+      const naturalWidth = el.scrollWidth;
+      el.style.fontSize = prevFontSize;
+      el.style.whiteSpace = prevWhiteSpace;
+      if (naturalWidth <= availableWidth) {
+        setFontSize(baseSize);
+        return;
+      }
+      const scale = availableWidth / naturalWidth;
+      const nextSize = Math.max(minSize, Math.floor(baseSize * scale));
+      setFontSize(nextSize);
+    };
+
+    measure();
+    const hasWindow = typeof window !== "undefined";
+    if (hasWindow) {
+      window.addEventListener("resize", measure);
+    }
+    let resizeObserver;
+    if (typeof ResizeObserver === "function") {
+      resizeObserver = new ResizeObserver(() => measure());
+      resizeObserver.observe(element.parentElement || element);
+    }
+    return () => {
+      if (hasWindow) {
+        window.removeEventListener("resize", measure);
+      }
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  }, [children, baseSize, minSize]);
+
+  return (
+    <div
+      ref={textRef}
+      className={className}
+      style={{
+        ...style,
+        fontSize: `${fontSize}px`,
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden",
+        textOverflow: "clip",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function CardFace({
   card,
   reps,
@@ -90,7 +175,16 @@ export default function CardFace({
           {showPreWorkoutOverlay && (
             <div
               className="absolute inset-0 flex items-center justify-center"
-              style={{ pointerEvents: "none", padding: 24 }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+                padding: 24,
+                transform: "translateY(-80px)",
+              }}
             >
               <div
                 className="select-none"
@@ -98,7 +192,7 @@ export default function CardFace({
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  transform: "translateY(10px)",
+                  transform: "translateY(0px)",
                 }}
               >
                 <div
@@ -108,17 +202,34 @@ export default function CardFace({
                     padding: "12px 16px",
                     borderRadius: 14,
                     minWidth: "65%",
-                    fontSize: 40,
+                    width: "100%",
+                    maxWidth: "420px",
                     fontWeight: 700,
                     boxShadow: "0 8px 24px rgba(15,23,42,0.15)",
                     textAlign: "center",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
                   }}
                 >
                   {preWorkoutOverlay.exercises.map((name, idx) => (
-                    <div key={`${name}-${idx}`}>{name}</div>
+                    <AutoFitText
+                      key={`${name}-${idx}`}
+                      baseSize={40}
+                      minSize={18}
+                      style={{ color: "#111827" }}
+                    >
+                      {name}
+                    </AutoFitText>
                   ))}
                   {preWorkoutOverlay.jokerLabel && (
-                    <div>{preWorkoutOverlay.jokerLabel}</div>
+                    <AutoFitText
+                      baseSize={38}
+                      minSize={18}
+                      style={{ color: "#111827" }}
+                    >
+                      {preWorkoutOverlay.jokerLabel}
+                    </AutoFitText>
                   )}
                 </div>
               </div>
@@ -181,12 +292,19 @@ export default function CardFace({
                   padding: "12px 16px",
                   borderRadius: 14,
                   minWidth: "65%",
-                  fontSize: 40,
+                  width: "100%",
+                  maxWidth: "420px",
                   fontWeight: 700,
                   transform: "translateY(10px)",
                 }}
               >
-                {workout}
+                <AutoFitText
+                  baseSize={40}
+                  minSize={18}
+                  style={{ fontWeight: 700 }}
+                >
+                  {workout}
+                </AutoFitText>
               </div>
             </div>
           </div>
@@ -267,18 +385,21 @@ export default function CardFace({
                       padding: "12px 16px",
                       borderRadius: 14,
                       minWidth: "65%",
+                      width: "100%",
+                      maxWidth: "420px",
                     }}
                   >
-                    <div
+                    <AutoFitText
+                      baseSize={40}
+                      minSize={18}
                       style={{
                         color: "#111827",
-                        fontSize: 40,
                         fontWeight: 700,
                         marginBottom: 6,
                       }}
                     >
                       {workout}
-                    </div>
+                    </AutoFitText>
                     <div style={{ color: "#111827", fontSize: 40 }}>
                       {reps} {reps === 1 ? "rep" : "reps"}
                     </div>
@@ -295,16 +416,17 @@ export default function CardFace({
 
               {!(isJokerFixed || /[JQK]/.test(card.rank)) && (
                 <>
-                  <div
+                  <AutoFitText
+                    baseSize={40}
+                    minSize={18}
                     style={{
                       color: "#111827",
-                      fontSize: 40,
                       fontWeight: 600,
                       marginBottom: 6,
                     }}
                   >
                     {workout}
-                  </div>
+                  </AutoFitText>
                   <div style={{ color: "#374151", fontSize: 40 }}>
                     {reps} {reps === 1 ? "rep" : "reps"}
                   </div>

@@ -17,31 +17,52 @@ export default function LibraryTable({
   addLabel,
   showMultiplierSelect = false,
   multiplierOptions = WORKOUT_MULTIPLIER_OPTIONS,
+  isEditing = false,
+  editRows = null,
+  onEditRowChange,
+  onDeleteRow,
 }) {
-  const groupedByLevel = React.useMemo(() => {
-    const groups = {
-      1: [],
-      2: [],
-      3: [],
-    };
+  const displayedRows = React.useMemo(() => {
+    if (isEditing && Array.isArray(editRows)) {
+      return editRows;
+    }
+    return rows || [];
+  }, [editRows, isEditing, rows]);
 
-    rows.forEach((row, idx) => {
-      const level = Math.min(
-        3,
-        Math.max(1, Number(row.difficulty) || 1)
-      );
+  const hasDeleteColumn = isEditing && typeof onDeleteRow === "function";
+  const showIncludeColumn = !isEditing;
+
+  const columnDefs = React.useMemo(() => {
+    if (!isEditing) return TABLE_COLUMNS;
+    const baseColumns = TABLE_COLUMNS.filter((col) => col.key !== "include");
+    const extended = [...baseColumns, { key: "difficulty", label: "Level" }];
+    if (showMultiplierSelect) {
+      extended.push({ key: "multiplier", label: "Mult" });
+    }
+    if (hasDeleteColumn) {
+      extended.push({ key: "actions", label: "Del" });
+    }
+    return extended;
+  }, [hasDeleteColumn, isEditing, showMultiplierSelect]);
+
+  const clampLevel = (value) =>
+    Math.min(3, Math.max(1, Number(value) || 1));
+
+  const groupedByLevel = React.useMemo(() => {
+    const groups = { 1: [], 2: [], 3: [] };
+    displayedRows.forEach((row, idx) => {
+      const level = clampLevel(row.difficulty);
       groups[level].push({ row, idx });
     });
-
     return groups;
-  }, [rows]);
+  }, [displayedRows]);
 
   const renderTableBody = (levelRows) => {
     if (!levelRows.length) {
       return (
         <tr>
           <td
-            colSpan={TABLE_COLUMNS.length}
+            colSpan={columnDefs.length}
             className="px-3 sm:px-4 py-4 text-center text-white/70"
             style={{ borderColor: "rgba(255,255,255,0.35)" }}
           >
@@ -51,56 +72,190 @@ export default function LibraryTable({
       );
     }
 
-    return levelRows.map(({ row, idx }) => (
-      <tr key={`${row.workout}-${idx}`} className="hover:bg-white/5">
-        <td
-          className="px-3 sm:px-4 py-2 align-top border border-white/30"
-          style={{
-            ...COLUMN_STYLES.include,
-            color: "#ffffff",
-            borderColor: "rgba(255,255,255,0.35)",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={row.include}
-            onChange={() => onToggleInclude?.(idx)}
-            className="h-5 w-5 accent-blue-500 cursor-pointer"
-            aria-label={`Include ${row.workout}`}
-          />
-        </td>
-        <td
-          className="px-3 sm:px-4 py-2 whitespace-normal break-words border border-white/30"
-          style={{
-            ...COLUMN_STYLES.workout,
-            color: "#ffffff",
-            borderColor: "rgba(255,255,255,0.35)",
-          }}
-        >
-          {row.workout}
-        </td>
-        <td
-          className="px-3 sm:px-4 py-2 whitespace-normal break-words border border-white/30"
-          style={{
-            ...COLUMN_STYLES.focus,
-            color: "#ffffff",
-            borderColor: "rgba(255,255,255,0.35)",
-          }}
-        >
-          {row.focus}
-        </td>
-        <td
-          className="px-3 sm:px-4 py-2 border border-white/30"
-          style={{
-            ...COLUMN_STYLES.weights,
-            color: "#ffffff",
-            borderColor: "rgba(255,255,255,0.35)",
-          }}
-        >
-          {row.weights}
-        </td>
-      </tr>
-    ));
+    return levelRows.map(({ row, idx }) => {
+      const focusValue = row.focus || FOCUS_OPTIONS[0];
+      const weightsValue = row.weights || WEIGHT_OPTIONS[0].value;
+      const multiplierValue = Number(row.multiplier) || 1;
+      const difficultyValue = clampLevel(row.difficulty);
+
+      const handleIncludeToggle = () => {
+        if (isEditing) {
+          onEditRowChange?.(idx, "include", !row.include);
+        } else {
+          onToggleInclude?.(idx);
+        }
+      };
+
+      const inputProps =
+        "w-full px-2 py-1.5 rounded bg-white/90 text-black text-xs sm:text-sm";
+
+      return (
+        <tr key={`${row.workout}-${idx}`} className="hover:bg-white/5">
+          {showIncludeColumn && (
+            <td
+              className="px-3 sm:px-4 py-2 align-top border border-white/30"
+              style={{
+                ...COLUMN_STYLES.include,
+                color: "#ffffff",
+                borderColor: "rgba(255,255,255,0.35)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={!!row.include}
+                onChange={handleIncludeToggle}
+                className="h-5 w-5 accent-blue-500 cursor-pointer"
+                aria-label={`Include ${row.workout}`}
+              />
+            </td>
+          )}
+          <td
+            className="px-3 sm:px-4 py-2 whitespace-normal break-words border border-white/30"
+            style={{
+              ...COLUMN_STYLES.workout,
+              color: "#ffffff",
+              borderColor: "rgba(255,255,255,0.35)",
+            }}
+          >
+            {isEditing ? (
+              <input
+                className={inputProps}
+                value={row.workout || ""}
+                onChange={(e) =>
+                  onEditRowChange?.(idx, "workout", e.target.value)
+                }
+                placeholder="Workout name"
+              />
+            ) : (
+              row.workout
+            )}
+          </td>
+          <td
+            className="px-3 sm:px-4 py-2 whitespace-normal break-words border border-white/30"
+            style={{
+              ...COLUMN_STYLES.focus,
+              color: "#ffffff",
+              borderColor: "rgba(255,255,255,0.35)",
+            }}
+          >
+            {isEditing ? (
+              <select
+                className={inputProps}
+                value={focusValue}
+                onChange={(e) =>
+                  onEditRowChange?.(idx, "focus", e.target.value)
+                }
+              >
+                {FOCUS_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              row.focus
+            )}
+          </td>
+          <td
+            className="px-3 sm:px-4 py-2 border border-white/30"
+            style={{
+              ...COLUMN_STYLES.weights,
+              color: "#ffffff",
+              borderColor: "rgba(255,255,255,0.35)",
+            }}
+          >
+            {isEditing ? (
+              <select
+                className={inputProps}
+                value={weightsValue}
+                onChange={(e) =>
+                  onEditRowChange?.(idx, "weights", e.target.value)
+                }
+              >
+                {WEIGHT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              row.weights
+            )}
+          </td>
+          {isEditing && (
+            <td
+              className="px-3 sm:px-4 py-2 border border-white/30"
+              style={{
+                ...COLUMN_STYLES.level,
+                color: "#ffffff",
+                borderColor: "rgba(255,255,255,0.35)",
+              }}
+            >
+              <select
+                className={inputProps}
+                value={difficultyValue}
+                onChange={(e) =>
+                  onEditRowChange?.(idx, "difficulty", Number(e.target.value))
+                }
+              >
+                {LEVEL_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </td>
+          )}
+          {isEditing && showMultiplierSelect && (
+            <td
+              className="px-3 sm:px-4 py-2 border border-white/30"
+              style={{
+                ...COLUMN_STYLES.multiplier,
+                color: "#ffffff",
+                borderColor: "rgba(255,255,255,0.35)",
+              }}
+            >
+              <select
+                className={inputProps}
+                value={multiplierValue}
+                onChange={(e) =>
+                  onEditRowChange?.(
+                    idx,
+                    "multiplier",
+                    Number(e.target.value) || 1
+                  )
+                }
+              >
+                {multiplierOptions.map((value) => (
+                  <option key={`edit-mult-${value}`} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </td>
+          )}
+          {hasDeleteColumn && (
+            <td
+              className="px-3 sm:px-4 py-2 border border-white/30"
+              style={{
+                ...COLUMN_STYLES.actions,
+                color: "#ffffff",
+                borderColor: "rgba(255,255,255,0.35)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => onDeleteRow?.(idx)}
+                className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500"
+                aria-label={`Delete ${row.workout || "workout"}`}
+              >
+                X
+              </button>
+            </td>
+          )}
+        </tr>
+      );
+    });
   };
 
   return (
@@ -134,7 +289,7 @@ export default function LibraryTable({
                 }}
               >
                 <tr>
-                  {TABLE_COLUMNS.map((col) => (
+                  {columnDefs.map((col) => (
                     <th
                       key={col.key}
                       className="px-3 sm:px-4 py-2 text-left whitespace-normal break-words border border-white/30"
