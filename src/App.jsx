@@ -30,12 +30,38 @@ const TAB_FONT_SIZE_PX = 16;
 
 function mergeLibrary(defaultRows, savedRows) {
   if (!Array.isArray(savedRows)) return defaultRows;
+
+  const getNormalizedKey = (row) => {
+    const parsed = parseWorkoutWithMultiplier(row?.workout);
+    const baseName = (parsed.workout || row?.workout || "").trim();
+    if (!baseName) return "";
+    const explicitMultiplier = Number(row?.multiplier);
+    const finalMultiplier = Number.isNaN(explicitMultiplier)
+      ? parsed.multiplier
+      : explicitMultiplier || parsed.multiplier || 1;
+    return formatWorkoutLabel(baseName, finalMultiplier).toLowerCase();
+  };
+
   const merged = [];
   const seen = new Set();
 
+  const defaultMap = new Map();
+  defaultRows.forEach((row) => {
+    const key = getNormalizedKey(row);
+    if (key && !defaultMap.has(key)) {
+      defaultMap.set(key, row);
+    }
+  });
+
   savedRows.forEach((saved) => {
-    if (!saved || !saved.workout) return;
-    const match = defaultRows.find((row) => row.workout === saved.workout);
+    const key = getNormalizedKey(saved);
+    if (!saved || !saved.workout || !key || seen.has(key)) return;
+    const match = defaultMap.get(key);
+    const parsed = parseWorkoutWithMultiplier(saved.workout);
+    const explicitMultiplier = Number(saved.multiplier);
+    const finalMultiplier = Number.isNaN(explicitMultiplier)
+      ? parsed.multiplier
+      : explicitMultiplier || parsed.multiplier || 1;
     if (match) {
       merged.push({
         ...match,
@@ -45,21 +71,28 @@ function mergeLibrary(defaultRows, savedRows) {
         difficulty: Number(saved.difficulty) || match.difficulty,
         focus: saved.focus || match.focus,
         weights: saved.weights || match.weights,
+        multiplier: Number.isNaN(explicitMultiplier)
+          ? match.multiplier
+          : explicitMultiplier,
       });
     } else {
       merged.push({
         include: typeof saved.include === "boolean" ? saved.include : true,
-        workout: saved.workout,
-        difficulty: Number(saved.difficulty) || 1,
+        workout: formatWorkoutLabel(parsed.workout, finalMultiplier),
+        difficulty: clampDifficulty(saved.difficulty),
         focus: saved.focus || "Full Body",
         weights: saved.weights || "No",
+        multiplier: finalMultiplier,
       });
     }
-    seen.add(saved.workout);
+    seen.add(key);
   });
 
   defaultRows.forEach((row) => {
-    if (!seen.has(row.workout)) merged.push(row);
+    const key = getNormalizedKey(row);
+    if (!key || seen.has(key)) return;
+    merged.push(row);
+    seen.add(key);
   });
 
   return merged;
