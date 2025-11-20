@@ -109,7 +109,7 @@ const BASE_WORKOUT_MAP = Object.freeze({
   "\u2660": "Push-ups",
   "\u2665": "Sit-ups",
   "\u2666": "Squats (2x)",
-  "\u2663": "Pullups",
+  "\u2663": "Pull-ups",
   JOKER: "2 min plank hold",
 });
 
