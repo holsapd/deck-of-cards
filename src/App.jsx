@@ -1091,11 +1091,11 @@ export default function DeckOfCardsWorkout() {
   const startEditingWorkoutLibrary = () => {
     if (isEditingWorkouts) return;
     const snapshot = sortRowsByLevel(
-      (workoutLibrary || []).map((row) => {
+      (workoutLibrary || []).map((row, idx) => {
         const parsed = parseWorkoutWithMultiplier(row.workout);
         return {
-          editKey: row.editKey || `workout-${Date.now()}-${Math.random()}`,
           ...row,
+          _editId: idx,
           workout: parsed.workout,
           multiplier: row.multiplier || parsed.multiplier || 1,
           difficulty: clampDifficulty(row.difficulty),
@@ -1115,8 +1115,7 @@ export default function DeckOfCardsWorkout() {
     setEditableWorkoutRows((rows) => {
       if (!Array.isArray(rows)) return rows;
       return rows.map((row, idx) => {
-        const rowKey = row.editKey ?? idx;
-        if (rowKey !== index) return row;
+        if (idx !== index) return row;
         if (field === "difficulty") {
           return { ...row, difficulty: clampDifficulty(value) };
         }
@@ -1134,10 +1133,7 @@ export default function DeckOfCardsWorkout() {
   const handleDeleteEditableWorkout = (index) => {
     setEditableWorkoutRows((rows) => {
       if (!Array.isArray(rows)) return rows;
-      return rows.filter((row, idx) => {
-        const rowKey = row.editKey ?? idx;
-        return rowKey !== index;
-      });
+      return rows.filter((_, idx) => idx !== index);
     });
   };
 
@@ -1147,8 +1143,9 @@ export default function DeckOfCardsWorkout() {
       .map((row) => {
         const trimmedName = (row.workout || "").trim();
         if (!trimmedName) return null;
+        const { _editId, ...rest } = row;
         return {
-          ...row,
+          ...rest,
           workout: trimmedName,
           focus: row.focus || "Full Body",
           weights: row.weights || "No",
@@ -1167,9 +1164,9 @@ export default function DeckOfCardsWorkout() {
   const startEditingJokerLibrary = () => {
     if (isEditingJokers) return;
     const snapshot = sortRowsByLevel(
-      normalizeJokerRows(jokerLibrary).map((row) => ({
-        editKey: row.editKey || `joker-${Date.now()}-${Math.random()}`,
+      normalizeJokerRows(jokerLibrary).map((row, idx) => ({
         ...row,
+        _editId: idx,
       }))
     );
     setEditableJokerRows(snapshot);
@@ -1185,8 +1182,7 @@ export default function DeckOfCardsWorkout() {
     setEditableJokerRows((rows) => {
       if (!Array.isArray(rows)) return rows;
       return rows.map((row, idx) => {
-        const rowKey = row.editKey ?? idx;
-        if (rowKey !== index) return row;
+        if (idx !== index) return row;
         if (field === "difficulty") {
           return { ...row, difficulty: clampDifficulty(value) };
         }
@@ -1201,16 +1197,17 @@ export default function DeckOfCardsWorkout() {
   const handleDeleteEditableJoker = (index) => {
     setEditableJokerRows((rows) => {
       if (!Array.isArray(rows)) return rows;
-      return rows.filter((row, idx) => {
-        const rowKey = row.editKey ?? idx;
-        return rowKey !== index;
-      });
+      return rows.filter((_, idx) => idx !== index);
     });
   };
 
   const handleSaveJokerEdits = () => {
     if (!isEditingJokers || !Array.isArray(editableJokerRows)) return;
-    const normalized = sortRowsByLevel(normalizeJokerRows(editableJokerRows));
+    const normalized = sortRowsByLevel(
+      normalizeJokerRows(
+        editableJokerRows.map(({ _editId, ...rest }) => rest)
+      )
+    );
     setJokerLibrary(normalized);
     setEditableJokerRows(null);
     setIsEditingJokers(false);
