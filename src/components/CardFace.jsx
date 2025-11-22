@@ -1,7 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// temporary for updating Git
 const standardBack = `${
   import.meta.env.BASE_URL
 }theme-standard-playing-card.png`;

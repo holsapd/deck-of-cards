@@ -1,6 +1,5 @@
 import React from "react";
 
-// temporary for updating Git
 function formatDate(value) {
   try {
     const date = new Date(value);
