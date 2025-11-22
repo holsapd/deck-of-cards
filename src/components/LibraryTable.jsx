@@ -77,10 +77,11 @@ export default function LibraryTable({
       const weightsValue = row.weights || WEIGHT_OPTIONS[0].value;
       const multiplierValue = Number(row.multiplier) || 1;
       const difficultyValue = clampLevel(row.difficulty);
+      const rowKey = row.editKey ?? idx;
 
       const handleIncludeToggle = () => {
         if (isEditing) {
-          onEditRowChange?.(idx, "include", !row.include);
+          onEditRowChange?.(rowKey, "include", !row.include);
         } else {
           onToggleInclude?.(idx);
         }
@@ -90,7 +91,10 @@ export default function LibraryTable({
         "w-full px-2 py-1.5 rounded bg-white/90 text-black text-xs sm:text-sm";
 
       return (
-        <tr key={`${row.workout}-${idx}`} className="hover:bg-white/5">
+        <tr
+          key={isEditing ? `edit-${rowKey}` : `${row.workout}-${idx}`}
+          className="hover:bg-white/5"
+        >
           {showIncludeColumn && (
             <td
               className="px-3 sm:px-4 py-2 align-top border border-white/30"
@@ -122,7 +126,7 @@ export default function LibraryTable({
                 className={inputProps}
                 value={row.workout || ""}
                 onChange={(e) =>
-                  onEditRowChange?.(idx, "workout", e.target.value)
+                  onEditRowChange?.(rowKey, "workout", e.target.value)
                 }
                 placeholder="Workout name"
               />
@@ -143,7 +147,7 @@ export default function LibraryTable({
                 className={inputProps}
                 value={focusValue}
                 onChange={(e) =>
-                  onEditRowChange?.(idx, "focus", e.target.value)
+                  onEditRowChange?.(rowKey, "focus", e.target.value)
                 }
               >
                 {FOCUS_OPTIONS.map((opt) => (
@@ -169,7 +173,7 @@ export default function LibraryTable({
                 className={inputProps}
                 value={weightsValue}
                 onChange={(e) =>
-                  onEditRowChange?.(idx, "weights", e.target.value)
+                  onEditRowChange?.(rowKey, "weights", e.target.value)
                 }
               >
                 {WEIGHT_OPTIONS.map((opt) => (
@@ -195,7 +199,11 @@ export default function LibraryTable({
                 className={inputProps}
                 value={difficultyValue}
                 onChange={(e) =>
-                  onEditRowChange?.(idx, "difficulty", Number(e.target.value))
+                  onEditRowChange?.(
+                    rowKey,
+                    "difficulty",
+                    Number(e.target.value)
+                  )
                 }
               >
                 {LEVEL_OPTIONS.map((opt) => (
@@ -220,7 +228,7 @@ export default function LibraryTable({
                 value={multiplierValue}
                 onChange={(e) =>
                   onEditRowChange?.(
-                    idx,
+                    rowKey,
                     "multiplier",
                     Number(e.target.value) || 1
                   )
@@ -245,7 +253,7 @@ export default function LibraryTable({
             >
               <button
                 type="button"
-                onClick={() => onDeleteRow?.(idx)}
+                onClick={() => onDeleteRow?.(rowKey)}
                 className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-500"
                 aria-label={`Delete ${row.workout || "workout"}`}
               >

@@ -157,6 +157,7 @@ export default function CardFace({
     return (
       <motion.div
         className="flex flex-col items-center w-full"
+        style={outerBoundsStyle}
         initial={
           isEndCard
             ? { opacity: 0, y: -120, rotate: 0, scale: 0.9 }
@@ -261,6 +262,14 @@ export default function CardFace({
   const isRedFinal = card?.isRed ?? isRedFixed;
   const pipColorFixed = isRedFinal ? "text-red-600" : "text-black";
   const textColor = isRedFinal ? "#dc2626" : "#000000";
+  const outerBoundsStyle =
+    maxWidth || maxHeight
+      ? {
+          width: "100%",
+          maxWidth: maxWidth || "none",
+          maxHeight: maxHeight || "none",
+        }
+      : undefined;
 
   return (
     <AnimatePresence mode="wait">
@@ -271,6 +280,7 @@ export default function CardFace({
         exit={{ rotateY: 90, opacity: 0 }}
         transition={{ duration: 0.3 }}
         className="flex flex-col items-center justify-center w-full"
+        style={outerBoundsStyle}
       >
         {isJokerFixed ? (
           <div

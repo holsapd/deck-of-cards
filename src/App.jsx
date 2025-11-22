@@ -1094,6 +1094,7 @@ export default function DeckOfCardsWorkout() {
       (workoutLibrary || []).map((row) => {
         const parsed = parseWorkoutWithMultiplier(row.workout);
         return {
+          editKey: row.editKey || `workout-${Date.now()}-${Math.random()}`,
           ...row,
           workout: parsed.workout,
           multiplier: row.multiplier || parsed.multiplier || 1,
@@ -1114,7 +1115,8 @@ export default function DeckOfCardsWorkout() {
     setEditableWorkoutRows((rows) => {
       if (!Array.isArray(rows)) return rows;
       return rows.map((row, idx) => {
-        if (idx !== index) return row;
+        const rowKey = row.editKey ?? idx;
+        if (rowKey !== index) return row;
         if (field === "difficulty") {
           return { ...row, difficulty: clampDifficulty(value) };
         }
@@ -1132,7 +1134,10 @@ export default function DeckOfCardsWorkout() {
   const handleDeleteEditableWorkout = (index) => {
     setEditableWorkoutRows((rows) => {
       if (!Array.isArray(rows)) return rows;
-      return rows.filter((_, idx) => idx !== index);
+      return rows.filter((row, idx) => {
+        const rowKey = row.editKey ?? idx;
+        return rowKey !== index;
+      });
     });
   };
 
@@ -1161,7 +1166,12 @@ export default function DeckOfCardsWorkout() {
 
   const startEditingJokerLibrary = () => {
     if (isEditingJokers) return;
-    const snapshot = sortRowsByLevel(normalizeJokerRows(jokerLibrary));
+    const snapshot = sortRowsByLevel(
+      normalizeJokerRows(jokerLibrary).map((row) => ({
+        editKey: row.editKey || `joker-${Date.now()}-${Math.random()}`,
+        ...row,
+      }))
+    );
     setEditableJokerRows(snapshot);
     setIsEditingJokers(true);
   };
@@ -1175,7 +1185,8 @@ export default function DeckOfCardsWorkout() {
     setEditableJokerRows((rows) => {
       if (!Array.isArray(rows)) return rows;
       return rows.map((row, idx) => {
-        if (idx !== index) return row;
+        const rowKey = row.editKey ?? idx;
+        if (rowKey !== index) return row;
         if (field === "difficulty") {
           return { ...row, difficulty: clampDifficulty(value) };
         }
@@ -1190,7 +1201,10 @@ export default function DeckOfCardsWorkout() {
   const handleDeleteEditableJoker = (index) => {
     setEditableJokerRows((rows) => {
       if (!Array.isArray(rows)) return rows;
-      return rows.filter((_, idx) => idx !== index);
+      return rows.filter((row, idx) => {
+        const rowKey = row.editKey ?? idx;
+        return rowKey !== index;
+      });
     });
   };
 
@@ -1445,12 +1459,11 @@ export default function DeckOfCardsWorkout() {
     activeTab === "workout" && hasStarted && !isEndOfDeck;
   const shouldLockScroll = disableScrollDuringWorkout && isScrolledToTop;
   const CARD_ASPECT_RATIO = 2.5 / 3.5;
-  const scrollLockedCardMaxHeight = shouldLockScroll
-    ? "calc(100vh - 240px)"
-    : undefined;
-  const scrollLockedCardMaxWidth = shouldLockScroll
-    ? `min(720px, calc((100vh - 240px) * ${CARD_ASPECT_RATIO.toFixed(4)}))`
-    : undefined;
+  const CARD_HEIGHT_CUSHION_PX = 240;
+  const cardMaxHeight = `calc(100vh - ${CARD_HEIGHT_CUSHION_PX}px)`;
+  const cardMaxWidth = `min(720px, calc((100vh - ${CARD_HEIGHT_CUSHION_PX}px) * ${CARD_ASPECT_RATIO.toFixed(
+    4
+  )}))`;
 
   React.useEffect(() => {
     if (!disableScrollDuringWorkout) {
@@ -1710,6 +1723,12 @@ export default function DeckOfCardsWorkout() {
                 className={`w-full transition-transform duration-200 ease-in-out ${
                   flipped ? "scale-90 opacity-0" : "scale-100 opacity-100"
                 }`}
+                style={{
+                  maxHeight: cardMaxHeight,
+                  maxWidth: cardMaxWidth,
+                  width: "100%",
+                  margin: "0 auto",
+                }}
               >
                 <CardFace
                   card={current}
@@ -1717,8 +1736,8 @@ export default function DeckOfCardsWorkout() {
                   workout={exerciseFor(current)}
                   showBack={showBack}
                   preWorkoutOverlay={preWorkoutOverlay}
-                  maxHeight={scrollLockedCardMaxHeight}
-                  maxWidth={scrollLockedCardMaxWidth}
+                  maxHeight={cardMaxHeight}
+                  maxWidth={cardMaxWidth}
                   isFlipped={!!current}
                 />
               </div>
