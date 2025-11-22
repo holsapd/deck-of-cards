@@ -116,6 +116,8 @@ export default function CardFace({
   workout,
   showBack,
   preWorkoutOverlay,
+  maxHeight,
+  maxWidth,
 }) {
   // Track face-art source and allow fallback to queen example
   const [faceSrc, setFaceSrc] = React.useState(null);
@@ -141,6 +143,16 @@ export default function CardFace({
   const showPreWorkoutOverlay =
     showBack && !!preWorkoutOverlay && !isEndCard && !card;
 
+  const frameStyle =
+    maxHeight || maxWidth
+      ? {
+          ...cardFrameStyle,
+          height: "auto",
+          ...(maxHeight ? { maxHeight } : {}),
+          ...(maxWidth ? { maxWidth } : {}),
+        }
+      : cardFrameStyle;
+
   if (showBack) {
     return (
       <motion.div
@@ -164,7 +176,7 @@ export default function CardFace({
       >
         <div
           className="relative bg-white rounded-[24px] border-[3px] border-gray-300 shadow-2xl overflow-hidden"
-          style={cardFrameStyle}
+          style={frameStyle}
         >
           <img
             src={isEndCard ? celebrationImg : standardBack}
@@ -263,7 +275,7 @@ export default function CardFace({
         {isJokerFixed ? (
           <div
             className="relative bg-white rounded-[24px] border-[3px] border-gray-300 shadow-2xl overflow-hidden"
-            style={cardFrameStyle}
+            style={frameStyle}
           >
             <img
               src={jokerImg}
@@ -311,7 +323,7 @@ export default function CardFace({
         ) : (
           <div
             className="relative bg-white rounded-[24px] border-[3px] border-gray-300 shadow-2xl overflow-hidden"
-            style={cardFrameStyle}
+            style={frameStyle}
           >
             {/[JQK]/.test(card.rank) && faceSrc && (
               <img

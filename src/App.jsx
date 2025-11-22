@@ -1441,8 +1441,16 @@ export default function DeckOfCardsWorkout() {
     label: deckPreset.name,
   }));
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
-  const disableScrollDuringWorkout = activeTab === "workout" && hasStarted;
+  const disableScrollDuringWorkout =
+    activeTab === "workout" && hasStarted && !isEndOfDeck;
   const shouldLockScroll = disableScrollDuringWorkout && isScrolledToTop;
+  const CARD_ASPECT_RATIO = 2.5 / 3.5;
+  const scrollLockedCardMaxHeight = shouldLockScroll
+    ? "calc(100vh - 240px)"
+    : undefined;
+  const scrollLockedCardMaxWidth = shouldLockScroll
+    ? `min(720px, calc((100vh - 240px) * ${CARD_ASPECT_RATIO.toFixed(4)}))`
+    : undefined;
 
   React.useEffect(() => {
     if (!disableScrollDuringWorkout) {
@@ -1709,6 +1717,8 @@ export default function DeckOfCardsWorkout() {
                   workout={exerciseFor(current)}
                   showBack={showBack}
                   preWorkoutOverlay={preWorkoutOverlay}
+                  maxHeight={scrollLockedCardMaxHeight}
+                  maxWidth={scrollLockedCardMaxWidth}
                   isFlipped={!!current}
                 />
               </div>
