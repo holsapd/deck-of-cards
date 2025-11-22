@@ -961,7 +961,6 @@ export default function DeckOfCardsWorkout() {
       jokerLabel: jokerCountLabel,
     };
   }, [current, exMap, numJokers]);
-  const isEndOfDeck = current?.id === "end";
   const progressIndex = Math.min(
     totalCards,
     Math.max(0, totalCards - deck.length)
@@ -1451,6 +1450,7 @@ export default function DeckOfCardsWorkout() {
     value: deckPreset.id,
     label: deckPreset.name,
   }));
+  const isEndOfDeck = current?.id === "end";
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
   const disableScrollDuringWorkout =
     activeTab === "workout" && hasStarted && !isEndOfDeck;
