@@ -142,6 +142,14 @@ export default function CardFace({
   }, [showBack, isEndCard]);
   const showPreWorkoutOverlay =
     showBack && !!preWorkoutOverlay && !isEndCard && !card;
+  const outerBoundsStyle =
+    maxWidth || maxHeight
+      ? {
+          width: "100%",
+          maxWidth: maxWidth || "none",
+          maxHeight: maxHeight || "none",
+        }
+      : undefined;
 
   const frameStyle =
     maxHeight || maxWidth
@@ -262,15 +270,6 @@ export default function CardFace({
   const isRedFinal = card?.isRed ?? isRedFixed;
   const pipColorFixed = isRedFinal ? "text-red-600" : "text-black";
   const textColor = isRedFinal ? "#dc2626" : "#000000";
-  const outerBoundsStyle =
-    maxWidth || maxHeight
-      ? {
-          width: "100%",
-          maxWidth: maxWidth || "none",
-          maxHeight: maxHeight || "none",
-        }
-      : undefined;
-
   return (
     <AnimatePresence mode="wait">
       <motion.div
