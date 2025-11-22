@@ -1202,6 +1202,14 @@ export default function DeckOfCardsWorkout() {
     setIsEditingJokers(false);
   };
 
+  const handleDeleteHistoryEntries = React.useCallback((idsToDelete) => {
+    if (!Array.isArray(idsToDelete) || !idsToDelete.length) return;
+    const idSet = new Set(idsToDelete);
+    setWorkoutHistory((prev) =>
+      prev.filter((entry) => entry && !idSet.has(entry.id))
+    );
+  }, []);
+
   const shuffleList = (list) => {
     const arr = list.slice();
     for (let i = arr.length - 1; i > 0; i--) {
@@ -1648,7 +1656,12 @@ export default function DeckOfCardsWorkout() {
             </>
           )}
 
-          {activeTab === "history" && <History entries={workoutHistory} />}
+          {activeTab === "history" && (
+            <History
+              entries={workoutHistory}
+              onDeleteEntries={handleDeleteHistoryEntries}
+            />
+          )}
 
           {activeTab === "workout" && (
             <>

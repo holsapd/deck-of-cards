@@ -37,7 +37,53 @@ function summarizeSuitDetails(suits) {
     .map(([label, reps]) => ({ label, reps }));
 }
 
-export default function History({ entries }) {
+export default function History({ entries, onDeleteEntries }) {
+  const [deleteMode, setDeleteMode] = React.useState(false);
+  const [pendingDeletes, setPendingDeletes] = React.useState(new Set());
+
+  React.useEffect(() => {
+    if (!deleteMode) return;
+    setPendingDeletes((prev) => {
+      const next = new Set();
+      (entries || []).forEach((entry) => {
+        if (prev.has(entry.id)) next.add(entry.id);
+      });
+      return next;
+    });
+  }, [entries, deleteMode]);
+
+  const startDeleteMode = () => {
+    setPendingDeletes(new Set());
+    setDeleteMode(true);
+  };
+
+  const cancelDeleteMode = () => {
+    setPendingDeletes(new Set());
+    setDeleteMode(false);
+  };
+
+  const toggleDeleteMark = (id) => {
+    setPendingDeletes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const saveDeletes = () => {
+    if (!deleteMode) return;
+    const idsToDelete = Array.from(pendingDeletes.values());
+    if (idsToDelete.length && typeof onDeleteEntries === "function") {
+      onDeleteEntries(idsToDelete);
+    }
+    setPendingDeletes(new Set());
+    setDeleteMode(false);
+  };
+
   const totalRepsAllTime = (entries || []).reduce(
     (sum, entry) => sum + (entry.totalReps || 0),
     0
@@ -140,11 +186,23 @@ export default function History({ entries }) {
               <th className="px-4 py-3 text-left border-b border-white/10">
                 Jokers
               </th>
+              {deleteMode && (
+                <th className="px-4 py-3 text-left border-b border-white/10 border-l border-white/10">
+                  Delete
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
-              <tr key={entry.id} className="border-b border-white/10">
+              <tr
+                key={entry.id}
+                className={`border-b border-white/10 ${
+                  deleteMode && pendingDeletes.has(entry.id)
+                    ? "bg-red-900/30"
+                    : ""
+                }`}
+              >
                 <td className="px-4 py-3 align-top border-r border-white/10">
                   {(() => {
                     const { date, time } = formatDate(entry.completedAt);
@@ -175,6 +233,21 @@ export default function History({ entries }) {
                     ? entry.jokers.join(", ")
                     : "None"}
                 </td>
+                {deleteMode && (
+                  <td className="px-4 py-3 align-top">
+                    <button
+                      type="button"
+                      onClick={() => toggleDeleteMark(entry.id)}
+                      className={`px-3 py-2 rounded-lg text-xs font-semibold border ${
+                        pendingDeletes.has(entry.id)
+                          ? "bg-red-700 text-white border-red-500"
+                          : "bg-white/10 text-white border-white/30 hover:bg-white/20"
+                      }`}
+                    >
+                      {pendingDeletes.has(entry.id) ? "Undo" : "Delete"}
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -209,6 +282,44 @@ export default function History({ entries }) {
             {totalCardsCompleted}
           </span>
         </div>
+      </div>
+      <div className="w-full flex flex-wrap items-center justify-end gap-3">
+        {deleteMode ? (
+          <>
+            <div
+              className="text-sm text-white/80 flex-1"
+              style={{ color: "#ffff" }}
+            >
+              {pendingDeletes.size
+                ? `${pendingDeletes.size} ${
+                    pendingDeletes.size === 1 ? "workout" : "workouts"
+                  } selected for deletion`
+                : "Select workouts to delete, then save your changes."}
+            </div>
+            <button
+              type="button"
+              onClick={cancelDeleteMode}
+              className="px-5 py-2 rounded-lg border border-white/40 text-white font-semibold text-sm hover:bg-white/10"
+            >
+              Cancel Changes
+            </button>
+            <button
+              type="button"
+              onClick={saveDeletes}
+              className="px-5 py-2 rounded-lg bg-red-600 text-white font-semibold text-sm hover:bg-red-500"
+            >
+              Save Changes
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={startDeleteMode}
+            className="px-5 py-2 rounded-lg bg-red-700 text-white font-semibold text-sm hover:bg-red-600"
+          >
+            Delete Selected Workouts
+          </button>
+        )}
       </div>
     </div>
   );
