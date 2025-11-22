@@ -8,6 +8,7 @@ import {
   WORKOUT_MULTIPLIER_OPTIONS,
 } from "../constants/libraryConfig";
 
+// temporary for updating Git
 export default function LibraryTable({
   rows,
   onToggleInclude,
